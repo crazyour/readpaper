@@ -151,9 +151,7 @@ class PaperTrainerStore:
 
     def get_paper(self, paper_id: str) -> PaperState | None:
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM papers WHERE paper_id = ?", (paper_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM papers WHERE paper_id = ?", (paper_id,)).fetchone()
             if row is None:
                 return None
             outline = PaperOutline.model_validate(_load(row["outline_json"]) or {})
@@ -177,9 +175,7 @@ class PaperTrainerStore:
 
     # ----- modules --------------------------------------------------------
 
-    def _load_modules(
-        self, conn: sqlite3.Connection, paper_id: str
-    ) -> dict[str, ModuleState]:
+    def _load_modules(self, conn: sqlite3.Connection, paper_id: str) -> dict[str, ModuleState]:
         rows = conn.execute(
             "SELECT module, state_json FROM module_state WHERE paper_id = ?",
             (paper_id,),
@@ -205,9 +201,7 @@ class PaperTrainerStore:
                 """,
                 (paper_id, state.module, _dump(state.model_dump()), now),
             )
-            conn.execute(
-                "UPDATE papers SET updated_at = ? WHERE paper_id = ?", (now, paper_id)
-            )
+            conn.execute("UPDATE papers SET updated_at = ? WHERE paper_id = ?", (now, paper_id))
 
     def get_module(self, paper_id: str, module: ModuleId) -> ModuleState | None:
         with self._connect() as conn:

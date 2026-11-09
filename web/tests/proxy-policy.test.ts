@@ -18,6 +18,7 @@ import {
   isAuthExempt,
   isBackendPath,
   isCodexCallbackPath,
+  isPaperOnlyPath,
   isRetiredPagePath,
   isWebSocketPath,
 } from "../lib/proxy-policy";
@@ -38,6 +39,29 @@ test("isBackendPath matches /api and /ws paths only", () => {
   assert.equal(isWebSocketPath("/ws"), true);
   assert.equal(isWebSocketPath("/ws/books"), true);
   assert.equal(isWebSocketPath("/ws-extra"), false);
+});
+
+test("paper-only deployments expose the trainer and its required backend surface", () => {
+  for (const pathname of [
+    "/",
+    "/research-plan",
+    "/api/paper-trainer/papers/p1",
+    "/files/attachments/paper-trainer-p1/source/paper.pdf",
+    "/login",
+    "/api/auth/status",
+    "/_next/static/app.js",
+  ]) {
+    assert.equal(isPaperOnlyPath(pathname), true, pathname);
+  }
+  for (const pathname of [
+    "/chat",
+    "/settings",
+    "/paper-quiz",
+    "/api/modules",
+    "/ws",
+  ]) {
+    assert.equal(isPaperOnlyPath(pathname), false, pathname);
+  }
 });
 
 test("large knowledge uploads bypass the buffering proxy", () => {

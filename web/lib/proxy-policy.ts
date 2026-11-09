@@ -48,6 +48,25 @@ export function isWebSocketPath(pathname: string): boolean {
 const STATIC_ASSET =
   /\.(?:png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|otf|txt|json|map|css|js|wasm)$/i;
 
+/** Routes retained by the focused paper-study deployment. */
+export function isPaperOnlyPath(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname === "/research-plan" ||
+    pathname === "/research-plan/" ||
+    pathname === LOGIN_PATH ||
+    pathname.startsWith("/register") ||
+    pathname === CODEX_CALLBACK_PATH ||
+    pathname === "/api/paper-trainer" ||
+    pathname.startsWith("/api/paper-trainer/") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/files/attachments/") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    STATIC_ASSET.test(pathname)
+  );
+}
+
 // Paths the auth gate must never block: the auth pages themselves, Next.js
 // internals, and public static assets (see STATIC_ASSET above).
 export function isAuthExempt(pathname: string): boolean {

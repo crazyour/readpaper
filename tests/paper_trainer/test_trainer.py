@@ -232,12 +232,8 @@ async def test_a_revised_answer_keeps_the_earlier_version(
     _stub_grader(monkeypatch)
     _paper(store)
 
-    await submit_answer(
-        store=store, paper_id="p1", module="framing", answer="First attempt."
-    )
-    await submit_answer(
-        store=store, paper_id="p1", module="framing", answer="Second attempt."
-    )
+    await submit_answer(store=store, paper_id="p1", module="framing", answer="First attempt.")
+    await submit_answer(store=store, paper_id="p1", module="framing", answer="Second attempt.")
 
     framing = store.get_module("p1", "framing")
     assert framing is not None
@@ -338,13 +334,9 @@ async def test_uploading_a_paper_opens_both_modules(
     async def _fake_parse(data: bytes, filename: str) -> str:
         return "paper text"
 
-    monkeypatch.setattr(
-        "deeptutor.paper_trainer.service._parse_paper", _fake_parse
-    )
+    monkeypatch.setattr("deeptutor.paper_trainer.service._parse_paper", _fake_parse)
 
-    state = await create_paper(
-        store=store, filename="plan.pdf", data=b"pdf-bytes", language="en"
-    )
+    state = await create_paper(store=store, filename="plan.pdf", data=b"pdf-bytes", language="en")
 
     assert set(state.modules) == set(MODULES)
     for module in MODULES:
@@ -423,16 +415,16 @@ def test_repeated_failure_on_one_point_is_counted() -> None:
     assert _repeat_streak(history + [round_("path length", "correct")], "path length") == 0
     assert _repeat_streak(history + [round_("prior work", "partial")], "path length") == 0
     # An unanswered round never counts as a failed attempt.
-    assert _repeat_streak(history + [round_("path length", "partial", answer="")], "path length") == 0
+    assert (
+        _repeat_streak(history + [round_("path length", "partial", answer="")], "path length") == 0
+    )
 
 
 def test_a_rewritten_focus_still_counts_as_the_same_point() -> None:
     """The model rewords the focus every round; the streak must still grow."""
-    from deeptutor.paper_trainer.grader import _same_point, _repeat_streak
+    from deeptutor.paper_trainer.grader import _repeat_streak, _same_point
 
-    first = (
-        "1 Introduction — 路径长度（path length）随距离增长与学习长距离依赖难度之间的关系"
-    )
+    first = "1 Introduction — 路径长度（path length）随距离增长与学习长距离依赖难度之间的关系"
     second = "路径长度（path length）与长距离依赖的学习难度"
     third = "把「路径长度」落成可数的运算步数：循环结构里它随距离线性增长，自注意力里它是常数"
 

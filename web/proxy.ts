@@ -11,6 +11,7 @@ import {
   isBackendPath,
   isCodexCallbackPath,
   isRetiredPagePath,
+  isPaperOnlyPath,
   isWebSocketPath,
 } from "./lib/proxy-policy";
 
@@ -28,6 +29,14 @@ const API_BASE_URL = resolveBackendApiBase();
 const AUTH_ENABLED = parseAuthEnabled(
   process.env.DEEPTUTOR_AUTH_ENABLED ?? process.env.NEXT_PUBLIC_AUTH_ENABLED,
 );
+
+// Vercel is the paper-study product, not a partially working copy of the full
+// desktop/web workspace. The explicit override makes the same focused surface
+// available to any other frontend host without affecting local development or
+// the full-app CI matrix.
+const PAPER_ONLY =
+  process.env.VERCEL === "1" ||
+  /^(1|true|yes|on)$/i.test(process.env.DEEPTUTOR_PAPER_ONLY ?? "");
 
 // Redirect to the login page, preserving the intended destination in `next`.
 // A present-but-invalid cookie is cleared so the browser stops resending it;
@@ -58,6 +67,10 @@ export function proxy(req: NextRequest): NextResponse {
   }
 
   if (isRetiredPagePath(pathname)) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  if (PAPER_ONLY && !isPaperOnlyPath(pathname)) {
     return new NextResponse(null, { status: 404 });
   }
 

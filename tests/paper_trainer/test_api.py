@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from deeptutor.api.routers import paper_trainer as router_module
 from deeptutor.paper_trainer import grader
@@ -142,9 +142,7 @@ def test_answering_one_module_leaves_the_other_alone(client: TestClient) -> None
     assert framing["current_question"] == "framing: why is the gap worth closing?"
     assert framing["pending_question"] == "framing: what breaks if the graph is wrong?"
 
-    implementation = client.get(f"{PREFIX}/papers/{paper_id}").json()["modules"][
-        "implementation"
-    ]
+    implementation = client.get(f"{PREFIX}/papers/{paper_id}").json()["modules"]["implementation"]
     assert implementation["rounds"] == []
     assert implementation["current_question"] == "implementation: why is the gap worth closing?"
 
@@ -156,9 +154,7 @@ def test_advancing_opens_the_pending_question(client: TestClient) -> None:
         json={"answer": "An answer."},
     )
 
-    response = client.post(
-        f"{PREFIX}/papers/{paper_id}/modules/implementation/advance"
-    )
+    response = client.post(f"{PREFIX}/papers/{paper_id}/modules/implementation/advance")
     assert response.status_code == 200, response.text
     state = response.json()
     assert state["current_question"] == "implementation: what breaks if the graph is wrong?"
@@ -186,9 +182,7 @@ def test_hint_and_summary_are_module_local(client: TestClient) -> None:
     assert hint["hint"]
     assert hint["hint_evidence"][0]["section"] == "2 Related Work"
 
-    summary = client.post(
-        f"{PREFIX}/papers/{paper_id}/modules/framing/summary"
-    ).json()
+    summary = client.post(f"{PREFIX}/papers/{paper_id}/modules/framing/summary").json()
     assert summary["summary"]["mastered"] == ["the gap"]
 
     other = client.get(f"{PREFIX}/papers/{paper_id}").json()["modules"]["implementation"]

@@ -6,8 +6,8 @@ Proves (or disproves) that the next question depends on the previous answer.
 from __future__ import annotations
 
 import asyncio
-import sys
 from pathlib import Path
+import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -29,9 +29,7 @@ ANSWERS = [
 async def main() -> None:
     store = PaperTrainerStore(Path("/tmp/trainer_trace.sqlite3"))
     data = Path("/tmp/trainer_sample.pdf").read_bytes()
-    paper = await create_paper(
-        store=store, filename="trainer_sample.pdf", data=data, language="zh"
-    )
+    paper = await create_paper(store=store, filename="trainer_sample.pdf", data=data, language="zh")
     module = paper.modules["framing"]
     print("=" * 78)
     print(f"论文：{paper.title}")
@@ -58,9 +56,7 @@ async def main() -> None:
             break
         print(f"→ 下一问 focus：{next_q.focus}")
         print(f"→ 下一问：{next_q.question}")
-        state = await advance_module(
-            store=store, paper_id=paper.paper_id, module="framing"
-        )
+        state = await advance_module(store=store, paper_id=paper.paper_id, module="framing")
         # Sanity: advance must not re-generate anything.
         assert state.current_question == next_q.question
 

@@ -106,7 +106,7 @@ async def _json_call(
             reasoning_effort=reasoning_effort,
         )
 
-    with task_llm_scope(TASK_KIND):
+    with task_llm_scope(TaskKind.PAPER_TRAINER):
         return await json_with_reasoning_retry(_run, expected_key=expected_key)
 
 

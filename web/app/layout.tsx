@@ -4,12 +4,7 @@ import "./globals.css";
 import "@/features/ui-layout/classic/classic.css";
 import "@/features/ui-layout/modern/modern.css";
 import ThemeScript from "@/components/ThemeScript";
-import ToastViewport from "@/components/common/ToastViewport";
-import MotionProvider from "@/components/common/MotionProvider";
-import SettingsReturnTracker from "@/components/settings/SettingsReturnTracker";
-import { WorkspaceNavigation } from "@/components/workspaces/WorkspaceNavigation";
-import { AppShellProvider } from "@/context/AppShellContext";
-import { I18nClientBridge } from "@/i18n/I18nClientBridge";
+import RootProviders from "@/components/RootProviders";
 
 // Geist matches the public site (deeptutor.info) and stays crisp at the
 // small UI sizes the composer/toolbars use, unlike the rounder Jakarta.
@@ -28,8 +23,8 @@ const fontSerif = Lora({
 export const viewport: Viewport = { interactiveWidget: "resizes-content" };
 
 export const metadata: Metadata = {
-  title: "DeepTutor",
-  description: "Agent-native intelligent learning companion",
+  title: "Paper Study Trainer",
+  description: "Read a research paper through focused questions and feedback.",
   icons: {
     icon: [
       { url: "/brand/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -58,14 +53,7 @@ export default function RootLayout({
         className="font-sans bg-[var(--background)] text-[var(--foreground)]"
         suppressHydrationWarning
       >
-        <AppShellProvider>
-          <SettingsReturnTracker />
-          <WorkspaceNavigation />
-          <MotionProvider>
-            <I18nClientBridge>{children}</I18nClientBridge>
-          </MotionProvider>
-          <ToastViewport />
-        </AppShellProvider>
+        <RootProviders>{children}</RootProviders>
       </body>
     </html>
   );

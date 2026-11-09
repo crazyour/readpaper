@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -92,9 +92,7 @@ def _paper_response(state: PaperState) -> PaperResponse:
         title=state.title,
         source_url=state.source_url,
         outline=state.outline.model_dump(),
-        modules={
-            name: _module_response(module) for name, module in state.modules.items()
-        },
+        modules={name: _module_response(module) for name, module in state.modules.items()},
         created_at=state.created_at,
         updated_at=state.updated_at,
     )
@@ -217,9 +215,7 @@ async def advance_question(
     """Move the module on to the question its last answer earned."""
     module_id = _module_or_400(module)
     try:
-        state = await advance_module(
-            store=_store(), paper_id=paper_id, module=module_id
-        )
+        state = await advance_module(store=_store(), paper_id=paper_id, module=module_id)
     except PaperTrainerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

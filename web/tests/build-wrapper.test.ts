@@ -183,9 +183,13 @@ packageStandaloneAssets(process.argv[1], process.argv[2]);`,
   }
 });
 
-test("the standalone bundle is rooted where the Python launcher expects it", () => {
+test("self-hosted builds stay standalone while Vercel owns its output", () => {
   const source = read("next.config.js");
-  assert.match(source, /output:\s*"standalone"/);
-  assert.match(source, /outputFileTracingRoot:\s*__dirname/);
+  assert.match(source, /const IS_VERCEL = process\.env\.VERCEL === "1"/);
+  assert.match(source, /output:\s*IS_VERCEL \? undefined : "standalone"/);
+  assert.match(
+    source,
+    /outputFileTracingRoot:\s*IS_VERCEL \? undefined : __dirname/,
+  );
   assert.match(source, /tsconfigPath:\s*process\.env\.DEEPTUTOR_NEXT_TSCONFIG/);
 });

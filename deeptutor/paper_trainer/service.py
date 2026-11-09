@@ -26,8 +26,6 @@ from deeptutor.paper_trainer.models import (
     ModuleId,
     ModuleState,
     ModuleSummary,
-    NextQuestion,
-    PaperOutline,
     PaperState,
     RoundFeedback,
     RoundState,
@@ -65,7 +63,9 @@ async def _parse_paper(data: bytes, filename: str) -> str:
     try:
         from deeptutor.services.parsing import get_parse_service
 
-        parsed = await asyncio.to_thread(get_parse_service().parse, _temp_paper_path(data, filename))
+        parsed = await asyncio.to_thread(
+            get_parse_service().parse, _temp_paper_path(data, filename)
+        )
         text = str(parsed.markdown or "").strip()
     except Exception:
         # No configured parser, or it failed. The native extractor below is
@@ -127,9 +127,7 @@ def _summary_payload(state: ModuleState) -> dict[str, Any]:
     return state.summary.model_dump() if state.summary else {}
 
 
-def _apply_feedback_to_state(
-    state: ModuleState, feedback: RoundFeedback, *, focus: str
-) -> None:
+def _apply_feedback_to_state(state: ModuleState, feedback: RoundFeedback, *, focus: str) -> None:
     """Fold one round's feedback into the module's standing knowledge state.
 
     The summary is the module's memory: what the student has mastered, what
@@ -349,9 +347,7 @@ async def advance_module(
     if state is None:
         raise PaperTrainerError("This training module is not open yet.")
     if not state.pending_question:
-        raise PaperTrainerError(
-            "There is no next question waiting. Answer the current one first."
-        )
+        raise PaperTrainerError("There is no next question waiting. Answer the current one first.")
 
     state.current_question = state.pending_question
     state.current_focus = state.pending_focus

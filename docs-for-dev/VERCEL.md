@@ -6,6 +6,12 @@ run on a normal host — Fly.io, Railway, Render, a VPS, or the bundled Docker
 image. The frontend talks to it through a server-side proxy, so the browser
 never needs a CORS preflight for ordinary requests.
 
+The Vercel build intentionally exposes only the paper study trainer, its file
+previews, and the authentication endpoints it may need. Full-workspace routes
+such as `/chat`, `/settings`, `/paper-quiz`, `/ws`, and their APIs return 404.
+Set `DEEPTUTOR_PAPER_ONLY=true` to apply the same focused surface on another
+frontend host; Vercel enables it automatically.
+
 ```
 browser ──► https://your-app.vercel.app  (Next.js, Vercel)
                 │  proxy.ts rewrites /api/* and /files/*
@@ -74,15 +80,15 @@ baking in `http://localhost:8001`.
 
 - The paper study trainer (`/research-plan`, also `/`): REST only —
   upload, grade, hint, advance, summary.
-- Every settings/read endpoint the frontend needs, `/files/attachments/*`
-  previews, and the PDF viewer.
+- `/files/attachments/*` previews and the authentication endpoints needed to
+  protect the trainer.
 
 **Does not work on Vercel**
 
 - **WebSocket turns** (`/ws`). Serverless functions cannot hold a WebSocket, so
   `/chat`, `deep_solve`, `deep_research` and the other streaming capabilities
   need a host that runs a long-lived Node process (`deeptutor start`, Docker, a
-  VPS). Their pages still load, but a turn will not stream.
+  VPS). These routes are not exposed by the focused Vercel deployment.
 - **Uploads above 4.5 MB through the frontend.** Vercel caps a Serverless
   Function request body at 4.5 MB. `uploadPaper()` therefore posts to
   `NEXT_PUBLIC_API_BASE` directly whenever it is an absolute, cross-origin URL
