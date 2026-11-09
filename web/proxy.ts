@@ -109,7 +109,9 @@ export const config = {
   // and /ws/* paths are explicitly handled above (rewritten to the backend);
   // Knowledge-base creation and upload requests that carry multipart bodies
   // are handled by dedicated App Router endpoints that stream directly to
-  // FastAPI. The browser's list call uses /api/knowledge-bases/list so it can
+  // FastAPI. Paper Trainer requests are handled by local Next route handlers
+  // and must not be rewritten to a separate backend. The browser's list call
+  // uses /api/knowledge-bases/list so it can
   // pass through the normal backend rewrite below. Excluding multipart routes
   // here is crucial:
   // merely entering Proxy makes Next clone and cap the multipart body.
@@ -117,6 +119,6 @@ export const config = {
   // optimizer's loopback fetch for the source image (e.g. /logo.png) is let
   // through the auth gate by isAuthExempt.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/knowledge-bases(?:$|/[^/]+/upload(?:/|$))|api/paper-trainer/papers$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/knowledge-bases(?:$|/[^/]+/upload(?:/|$))|api/paper-trainer/(?:papers|action)$).*)",
   ],
 };

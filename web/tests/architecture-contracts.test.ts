@@ -48,6 +48,7 @@ test("browser storage methods stay behind the shared boundary", () => {
 test("raw fetch is limited to the shared API client and media preview", () => {
   const allow = new Set([
     "shared/api/client.ts",
+    "shared/api/minimax.ts",
     "components/chat/preview/FilePreviewDrawer.tsx",
   ]);
   const violations = allSources

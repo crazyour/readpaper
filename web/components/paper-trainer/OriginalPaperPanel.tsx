@@ -50,7 +50,7 @@ export default function OriginalPaperPanel({
       ? `${sourceUrl}#page=${page}`
       : sourceUrl
     : "";
-  const canPreview = /\.pdf($|[?#])/i.test(sourceUrl);
+  const canPreview = /\.pdf$/i.test(filename) || /\.pdf($|[?#])/i.test(sourceUrl);
 
   return (
     <Dialog

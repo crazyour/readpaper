@@ -79,6 +79,8 @@ test("large knowledge uploads bypass the buffering proxy", () => {
     true,
   );
   assert.equal(matches("http://localhost/chat"), true);
+  assert.equal(matches("http://localhost/api/paper-trainer/papers"), false);
+  assert.equal(matches("http://localhost/api/paper-trainer/action"), false);
 });
 
 test("backend proxy allows long-running agent requests", () => {

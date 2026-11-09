@@ -1,22 +1,18 @@
-/**
- * REST client for the paper-reading trainer.
- *
- * The trainer's state lives on the server, keyed by paper id and module, so a
- * refresh restores both modules exactly as they were. Every call returns the
- * module's whole state; the UI replaces what it had rather than patching it,
- * which keeps the two modules from ever drifting into each other.
- */
+/** Browser client for the Vercel-native, locally persisted paper trainer. */
 
-import { apiUrl, requestJson } from "@/shared/api/client";
-import { publicBackendBase } from "@/lib/backend-public-base";
-import { activeWorkspaceId } from "@/lib/workspace-scope";
+import { requestJson } from "@/shared/api/client";
 
+import { extractPaperText } from "./extract";
+import {
+  readPaperSession,
+  saveModuleState,
+  savePaperSession,
+} from "./local-store";
 import type { ModuleId, ModuleState, PaperState } from "./model";
 
 const BASE = "/api/paper-trainer";
 
 export const SUPPORTED_SUFFIXES = [".pdf", ".docx", ".txt", ".md"] as const;
-
 export const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
 
 export function isSupportedPaper(file: File): boolean {
@@ -24,41 +20,65 @@ export function isSupportedPaper(file: File): boolean {
   return SUPPORTED_SUFFIXES.some((suffix) => name.endsWith(suffix));
 }
 
-/**
- * Where the multipart upload should go.
- *
- * Same-origin by default, which the Next route handler streams to FastAPI. On
- * a host that caps request bodies (Vercel Functions stop at 4.5 MB) the paper
- * goes straight to the API instead — the browser can send it, a serverless
- * function cannot.
- */
-function uploadUrl(): string {
-  const direct = publicBackendBase();
-  if (!direct) return apiUrl(`${BASE}/papers`);
-  const workspace = activeWorkspaceId();
-  return `${direct}${BASE}/papers?dt_workspace=${encodeURIComponent(workspace)}`;
+function sourceUrl(file: File): string {
+  return typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
 }
 
-/** Upload a paper. Both modules come back already opened. */
+/** Extract locally; only bounded text reaches the Vercel function. */
 export async function uploadPaper(
   file: File,
   language: string,
 ): Promise<PaperState> {
-  const form = new FormData();
-  form.append("file", file, file.name);
-  form.append("language", language);
-  // No Content-Type header: the browser writes the multipart boundary itself.
-  return requestJson<PaperState>(uploadUrl(), {
+  const paperText = await extractPaperText(file);
+  const paper = await requestJson<PaperState>(`${BASE}/papers`, {
     method: "POST",
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name,
+      paper_text: paperText,
+      language,
+    }),
   });
+  const livePaper = { ...paper, source_url: sourceUrl(file) };
+  savePaperSession(livePaper, paperText);
+  return livePaper;
 }
 
-/** Restore a paper and both modules — the reload path. */
+/** Restore from this browser; Vercel holds no per-user database. */
 export function getPaper(paperId: string): Promise<PaperState> {
-  return requestJson<PaperState>(
-    apiUrl(`${BASE}/papers/${encodeURIComponent(paperId)}`),
-  );
+  const stored = readPaperSession(paperId);
+  return stored
+    ? Promise.resolve(stored.paper)
+    : Promise.reject(new Error("This paper is no longer available in this browser."));
+}
+
+async function runAction(
+  paperId: string,
+  module: ModuleId,
+  action: "answer" | "hint" | "summary",
+  language: string,
+  answer = "",
+): Promise<ModuleState> {
+  const stored = readPaperSession(paperId);
+  const state = stored?.paper.modules[module];
+  if (!stored || !state) {
+    throw new Error("This paper is no longer available in this browser.");
+  }
+  const next = await requestJson<ModuleState>(`${BASE}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action,
+      module,
+      state,
+      outline: stored.paper.outline,
+      paper_text: stored.paperText,
+      language,
+      answer,
+    }),
+  });
+  saveModuleState(paperId, module, next);
+  return next;
 }
 
 export function submitAnswer(
@@ -67,29 +87,34 @@ export function submitAnswer(
   answer: string,
   language: string,
 ): Promise<ModuleState> {
-  return requestJson<ModuleState>(
-    apiUrl(
-      `${BASE}/papers/${encodeURIComponent(paperId)}/modules/${module}/answer?language=${encodeURIComponent(language)}`,
-    ),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer }),
-    },
-  );
+  return runAction(paperId, module, "answer", language, answer);
 }
 
-/** Move the module on to the question the last answer earned. */
-export function advanceModule(
+/** Advancing is a local state transition and does not spend a model call. */
+export async function advanceModule(
   paperId: string,
   module: ModuleId,
 ): Promise<ModuleState> {
-  return requestJson<ModuleState>(
-    apiUrl(
-      `${BASE}/papers/${encodeURIComponent(paperId)}/modules/${module}/advance`,
-    ),
-    { method: "POST" },
-  );
+  const stored = readPaperSession(paperId);
+  const current = stored?.paper.modules[module];
+  if (!current) {
+    throw new Error("This paper is no longer available in this browser.");
+  }
+  if (!current.pending_question) {
+    throw new Error("Answer the current question first.");
+  }
+  const next: ModuleState = {
+    ...current,
+    current_question: current.pending_question,
+    current_focus: current.pending_focus,
+    pending_question: "",
+    pending_focus: "",
+    hint: "",
+    hint_evidence: [],
+    finished: false,
+  };
+  saveModuleState(paperId, module, next);
+  return next;
 }
 
 export function requestHint(
@@ -97,12 +122,7 @@ export function requestHint(
   module: ModuleId,
   language: string,
 ): Promise<ModuleState> {
-  return requestJson<ModuleState>(
-    apiUrl(
-      `${BASE}/papers/${encodeURIComponent(paperId)}/modules/${module}/hint?language=${encodeURIComponent(language)}`,
-    ),
-    { method: "POST" },
-  );
+  return runAction(paperId, module, "hint", language);
 }
 
 export function requestSummary(
@@ -110,10 +130,5 @@ export function requestSummary(
   module: ModuleId,
   language: string,
 ): Promise<ModuleState> {
-  return requestJson<ModuleState>(
-    apiUrl(
-      `${BASE}/papers/${encodeURIComponent(paperId)}/modules/${module}/summary?language=${encodeURIComponent(language)}`,
-    ),
-    { method: "POST" },
-  );
+  return runAction(paperId, module, "summary", language);
 }

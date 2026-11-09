@@ -15,6 +15,10 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("@/features/paper-trainer/extract", () => ({
+  extractPaperText: async () => "Extracted paper text ".repeat(20),
+}));
+
 // ----- a small, stateful stand-in for the trainer API ----------------------
 
 function freshModule(module: ModuleId, question: string): ModuleState {
@@ -128,34 +132,25 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
     return json(paper);
   }
 
-  const match = url.match(
-    /\/api\/paper-trainer\/papers\/p1\/modules\/(framing|implementation)\/(answer|advance|hint|summary)/,
-  );
-  if (!match) return json({ detail: "Not found" }, 404);
-
-  const moduleId = match[1] as ModuleId;
-  const action = match[2];
-  const current = paper.modules[moduleId] as ModuleState;
+  if (method !== "POST" || !url.includes("/api/paper-trainer/action")) {
+    return json({ detail: "Not found" }, 404);
+  }
+  const request = JSON.parse(String(init?.body ?? "{}")) as {
+    action: "answer" | "hint" | "summary";
+    module: ModuleId;
+    state: ModuleState;
+    answer?: string;
+  };
+  const moduleId = request.module;
+  const action = request.action;
+  const current = request.state;
 
   if (action === "answer") {
-    const body = JSON.parse(String(init?.body ?? "{}")) as { answer?: string };
     paper = {
       ...paper,
       modules: {
         ...paper.modules,
-        [moduleId]: grade(current, moduleId, body.answer ?? ""),
-      },
-    };
-  } else if (action === "advance") {
-    paper = {
-      ...paper,
-      modules: {
-        ...paper.modules,
-        [moduleId]: {
-          ...current,
-          current_question: current.pending_question,
-          pending_question: "",
-        },
+        [moduleId]: grade(current, moduleId, request.answer ?? ""),
       },
     };
   } else if (action === "hint") {
@@ -190,6 +185,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
 });
 
 import PaperTrainerLab from "@/components/paper-trainer/PaperTrainerLab";
+import { savePaperSession } from "@/features/paper-trainer/local-store";
 
 beforeEach(() => {
   paper = freshPaper();
@@ -340,6 +336,7 @@ describe("paper trainer", () => {
       },
     };
     localStorage.setItem("deeptutor:v2:paper-trainer:last-paper", "p1");
+    savePaperSession(paper, "Extracted paper text ".repeat(20));
 
     render(<PaperTrainerLab />);
 
