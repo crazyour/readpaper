@@ -120,14 +120,19 @@ const nextConfig = {
   },
 
   // Standalone output: self-contained server.js + minimal node_modules
-  // This eliminates the need to copy the full node_modules into Docker production images
-  output: "standalone",
+  // This eliminates the need to copy the full node_modules into Docker production images.
+  //
+  // Vercel builds its own deployment output and validates it at `/vercel/path0`
+  // (the repository root), so a standalone bundle traced from `web/` makes that
+  // validator look for `.next/routes-manifest-deterministic.json` where it will
+  // never be — the deployment then fails after a green build (HKUDS/DeepTutor#1428).
+  output: IS_VERCEL ? undefined : "standalone",
 
   // Keep the standalone bundle rooted at this frontend directory. Without an
   // explicit root, Next.js can mirror the absolute checkout path inside
   // `.next-deeptutor/standalone`, while the DeepTutor launcher expects
-  // `.next-deeptutor/standalone/server.js` directly.
-  outputFileTracingRoot: __dirname,
+  // `.next-deeptutor/standalone/server.js` directly. Vercel owns tracing.
+  outputFileTracingRoot: IS_VERCEL ? undefined : __dirname,
 
   // web/proxy.ts clones request bodies before rewriting them. Keep enough room
   // for individual large-body endpoints that still use Proxy. Knowledge-base
