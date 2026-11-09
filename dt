@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# DeepTutor launcher wrapper (source checkout).
+# Code and runtime home live together here; `data/` is gitignored.
+export DEEPTUTOR_HOME="${DEEPTUTOR_HOME:-/Users/btang/Projects/DeepTutor}"
+exec "/Users/btang/Projects/DeepTutor/.venv/bin/deeptutor" "$@"
