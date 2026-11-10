@@ -5,14 +5,28 @@ import JSZip from "jszip";
 import {
   loadPdfjs,
   pdfjsCMapUrl,
-  pdfjsWasmUrl,
 } from "@/lib/pdfjs-loader";
 
 export const MAX_PAPER_TEXT_CHARS = 80_000;
 
+/** Read a browser File on Safari versions that predate Blob.arrayBuffer(). */
+function readFileBuffer(file: Blob): Promise<ArrayBuffer> {
+  if (typeof file.arrayBuffer === "function") return file.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) resolve(reader.result);
+      else reject(new Error("The selected file could not be read."));
+    };
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("The selected file could not be read."));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function normalizePaperText(value: string): string {
   return value
-    .replaceAll("\u0000", "")
+    .replace(/\u0000/g, "")
     .replace(/[^\S\r\n]+/g, " ")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim()
@@ -22,8 +36,7 @@ function normalizePaperText(value: string): string {
 async function extractPdf(file: File): Promise<string> {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
-    wasmUrl: pdfjsWasmUrl(),
+    data: new Uint8Array(await readFileBuffer(file)),
     cMapUrl: pdfjsCMapUrl(),
     cMapPacked: true,
   });
@@ -53,7 +66,7 @@ async function extractPdf(file: File): Promise<string> {
 }
 
 async function extractDocx(file: File): Promise<string> {
-  const archive = await JSZip.loadAsync(await file.arrayBuffer());
+  const archive = await JSZip.loadAsync(await readFileBuffer(file));
   const document = archive.file("word/document.xml");
   if (!document) return "";
   const xml = new DOMParser().parseFromString(

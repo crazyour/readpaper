@@ -6641,7 +6641,7 @@
   "Starting…": "正在开始…",
   "Start the interview": "开始访谈",
   "e.g. the method section": "例如：方法部分",
-  "Paper Study Trainer": "论文研究训练",
+  "Paper Study Trainer": "论文阅读问答训练",
   "Paper Study Trainer tooltip": "上传论文，接受导师式追问，读懂研究为什么做、怎么做。",
   "Research framing": "研究立项类",
   "Research implementation": "研究实现类",
@@ -6696,6 +6696,5 @@
   "e.g. the method section's main claim": "例如“方法部分的主要论点”",
   "Paper trainer questions": "论文精读提问",
   "Grades the student's close reading and writes the next question.": "批改学生的精读回答，并生成下一个问题。",
-  "Paper study trainer": "论文研究训练",
-  "The tutor reads the paper first. Then it asks, you answer, and it keeps asking until your reasoning holds up.": "导师先读论文，然后提问；你回答，它继续追问，直到你的推理站得住脚。"
+  "Paper study trainer": "论文阅读问答训练"
 }

@@ -29,7 +29,6 @@ export type Pdfjs = typeof PdfjsModule;
 export type PdfDocument = Awaited<ReturnType<Pdfjs["getDocument"]>["promise"]>;
 export type PdfPageProxy = Awaited<ReturnType<PdfDocument["getPage"]>>;
 
-const PDFJS_WASM_PATH = "/pdfjs/wasm/";
 const PDFJS_CMAP_PATH = "/pdfjs/cmaps/";
 
 let pending: Promise<Pdfjs> | null = null;
@@ -55,12 +54,6 @@ export function loadPdfjs(): Promise<Pdfjs> {
     throw error;
   });
   return pending;
-}
-
-/** Absolute same-origin base URL used by PDF.js for decoder modules. */
-export function pdfjsWasmUrl(): string {
-  if (typeof window === "undefined") return PDFJS_WASM_PATH;
-  return new URL(PDFJS_WASM_PATH, window.location.origin).toString();
 }
 
 /**

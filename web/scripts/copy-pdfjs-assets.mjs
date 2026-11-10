@@ -9,9 +9,9 @@ const webRoot = path.resolve(
 const sourceRoot = path.join(webRoot, "node_modules", "pdfjs-dist");
 const targetRoot = path.join(webRoot, "public", "pdfjs");
 
-// `wasm` backs wasmUrl (JPEG2000/JBIG2/QCMS decoders), `cmaps` backs cMapUrl
-// (predefined character maps used by CID fonts).
-const ASSET_DIRS = ["wasm", "cmaps"];
+// CMaps back cMapUrl (predefined character maps used by CID fonts). PDF.js 4
+// keeps its image decoders in the JS bundle, so it has no separate wasm tree.
+const ASSET_DIRS = ["cmaps"];
 
 /**
  * Copy PDF.js decoder and character-map resources into Next's public asset tree.

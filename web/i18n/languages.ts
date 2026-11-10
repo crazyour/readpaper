@@ -16,7 +16,9 @@ export function isAppLanguage(value: unknown): value is AppLanguage {
 
 export function normalizeLanguage(value: unknown): AppLanguage {
   if (typeof value !== "string") return "en";
-  const code = value.trim().toLowerCase().replaceAll("_", "-");
+  // replaceAll is unavailable in older Safari releases still used by some
+  // iPads. A global regular expression has identical behaviour here.
+  const code = value.trim().toLowerCase().replace(/_/g, "-");
   const base = code.split("-", 1)[0];
   if (base === "zh" || base === "cn" || code === "chinese") return "zh";
   return "en";

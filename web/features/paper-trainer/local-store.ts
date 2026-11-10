@@ -7,10 +7,15 @@ import type { ModuleId, ModuleState, PaperState } from "./model";
 const NAMESPACE = "deeptutor:v3:paper-trainer:paper:";
 const memory = new Map<string, StoredPaper>();
 
-interface StoredPaper {
-  version: 1;
+export type PaperBackend =
+  | { kind: "local" }
+  | { kind: "cloud"; baseUrl: string };
+
+export interface StoredPaper {
+  version: 2;
   paper: PaperState;
   paperText: string;
+  backend: PaperBackend;
 }
 
 function storageKey(paperId: string): string {
@@ -20,12 +25,23 @@ function storageKey(paperId: string): string {
 function persistedCopy(value: StoredPaper): StoredPaper {
   return {
     ...value,
-    paper: { ...value.paper, source_url: "" },
+    // Object URLs only survive in the current tab. A cloud URL is durable and
+    // should remain available after a reload.
+    paper: {
+      ...value.paper,
+      source_url: value.paper.source_url.startsWith("blob:")
+        ? ""
+        : value.paper.source_url,
+    },
   };
 }
 
-export function savePaperSession(paper: PaperState, paperText: string): void {
-  const stored: StoredPaper = { version: 1, paper, paperText };
+export function savePaperSession(
+  paper: PaperState,
+  paperText: string,
+  backend: PaperBackend = { kind: "local" },
+): void {
+  const stored: StoredPaper = { version: 2, paper, paperText, backend };
   memory.set(paper.paper_id, stored);
   browserStorage.writeRaw(
     "local",
@@ -40,16 +56,29 @@ export function readPaperSession(paperId: string): StoredPaper | null {
   const raw = browserStorage.readRaw("local", storageKey(paperId));
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<StoredPaper>;
+    const parsed = JSON.parse(raw) as {
+      version?: unknown;
+      paper?: PaperState;
+      paperText?: unknown;
+      backend?: PaperBackend;
+    };
     if (
-      parsed.version !== 1 ||
+      (parsed.version !== 1 && parsed.version !== 2) ||
       !parsed.paper ||
       parsed.paper.paper_id !== paperId ||
       typeof parsed.paperText !== "string"
     ) {
       return null;
     }
-    const restored = parsed as StoredPaper;
+    const restored: StoredPaper = {
+      version: 2,
+      paper: parsed.paper,
+      paperText: parsed.paperText,
+      backend:
+        parsed.version === 2 && parsed.backend?.kind === "cloud"
+          ? parsed.backend
+          : { kind: "local" },
+    };
     memory.set(paperId, restored);
     return restored;
   } catch {
@@ -71,6 +100,6 @@ export function saveModuleState(
     modules: { ...stored.paper.modules, [module]: state },
     updated_at: Date.now() / 1000,
   };
-  savePaperSession(paper, stored.paperText);
+  savePaperSession(paper, stored.paperText, stored.backend);
   return paper;
 }

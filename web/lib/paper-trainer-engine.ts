@@ -300,7 +300,7 @@ ${answer}`,
   );
   const verdict = feedback(result);
   const now = Date.now() / 1000;
-  const previous = state.rounds.at(-1);
+  const previous = state.rounds[state.rounds.length - 1];
   const revising = previous?.question === state.current_question;
   if (revising && previous) {
     if (previous.answer && previous.answer !== answer) {

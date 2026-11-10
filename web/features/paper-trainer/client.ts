@@ -10,6 +10,19 @@ import type { ModuleId, ModuleState, PaperState } from "./model";
 
 const BASE = "/api/paper-trainer";
 
+function cloudApiRoot(): string {
+  const configured = (process.env.NEXT_PUBLIC_API_BASE ?? "").trim();
+  if (!configured) return "";
+  const base = configured.replace(/\/+$/, "");
+  return base.endsWith("/api")
+    ? `${base}/paper-trainer`
+    : `${base}/api/paper-trainer`;
+}
+
+function languageQuery(language: string): string {
+  return new URLSearchParams({ language }).toString();
+}
+
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const body = (await response.json().catch(() => null)) as
@@ -39,11 +52,50 @@ function sourceUrl(file: File): string {
   return typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
 }
 
-/** Extract locally; only bounded text reaches the Vercel function. */
+function absoluteCloudUrl(apiRoot: string, value: string): string {
+  if (!value || /^(?:https?:|blob:|data:)/i.test(value)) return value;
+  try {
+    return new URL(value, apiRoot).toString();
+  } catch {
+    return value;
+  }
+}
+
+async function uploadToCloud(
+  apiRoot: string,
+  file: File,
+  language: string,
+): Promise<PaperState> {
+  const body = new FormData();
+  body.append("file", file, file.name);
+  body.append("language", language);
+  const paper = await requestJson<PaperState>(`${apiRoot}/papers`, {
+    method: "POST",
+    body,
+    credentials: "include",
+  });
+  const livePaper = {
+    ...paper,
+    source_url:
+      absoluteCloudUrl(apiRoot, paper.source_url) || sourceUrl(file),
+  };
+  savePaperSession(livePaper, "", { kind: "cloud", baseUrl: apiRoot });
+  return livePaper;
+}
+
+/** Use the configured DeepTutor backend first, with a browser-only fallback. */
 export async function uploadPaper(
   file: File,
   language: string,
 ): Promise<PaperState> {
+  const apiRoot = cloudApiRoot();
+  if (apiRoot) {
+    try {
+      return await uploadToCloud(apiRoot, file, language);
+    } catch (error) {
+      console.warn("DeepTutor cloud parsing failed; using local extraction.", error);
+    }
+  }
   const paperText = await extractPaperText(file);
   const paper = await requestJson<PaperState>(`${BASE}/papers`, {
     method: "POST",
@@ -78,6 +130,25 @@ async function runAction(
   const state = stored?.paper.modules[module];
   if (!stored || !state) {
     throw new Error("This paper is no longer available in this browser.");
+  }
+  if (stored.backend.kind === "cloud") {
+    const suffix =
+      action === "answer"
+        ? "answer"
+        : action === "hint"
+          ? "hint"
+          : "summary";
+    const next = await requestJson<ModuleState>(
+      `${stored.backend.baseUrl}/papers/${encodeURIComponent(paperId)}/modules/${module}/${suffix}?${languageQuery(language)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: action === "answer" ? JSON.stringify({ answer }) : undefined,
+        credentials: "include",
+      },
+    );
+    saveModuleState(paperId, module, next);
+    return next;
   }
   const next = await requestJson<ModuleState>(`${BASE}/action`, {
     method: "POST",
@@ -114,6 +185,14 @@ export async function advanceModule(
   const current = stored?.paper.modules[module];
   if (!current) {
     throw new Error("This paper is no longer available in this browser.");
+  }
+  if (stored.backend.kind === "cloud") {
+    const next = await requestJson<ModuleState>(
+      `${stored.backend.baseUrl}/papers/${encodeURIComponent(paperId)}/modules/${module}/advance`,
+      { method: "POST", credentials: "include" },
+    );
+    saveModuleState(paperId, module, next);
+    return next;
   }
   if (!current.pending_question) {
     throw new Error("Answer the current question first.");
