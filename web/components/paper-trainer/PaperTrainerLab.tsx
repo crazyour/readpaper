@@ -105,11 +105,6 @@ function UploadArea({
               ? t("Reading the paper and opening both modules…")
               : t("Drop a PDF here, or click to browse")}
           </p>
-          <p className="mx-auto mt-2 max-w-[46ch] text-[12.5px] leading-[1.7] text-muted-foreground">
-            {t(
-              "The tutor reads the paper first. Then it asks, you answer, and it keeps asking until your reasoning holds up.",
-            )}
-          </p>
         </div>
 
         <span className="rounded-full border border-border/80 px-3 py-1 text-[11px] text-muted-foreground">

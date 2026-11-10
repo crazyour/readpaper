@@ -6,11 +6,11 @@ const API_BASES = [
 ] as const;
 
 const PREFERRED_MODELS = [
+  "MiniMax-M2.7-highspeed",
+  "MiniMax-M2.5-highspeed",
   "MiniMax-M3.1-Flash",
   "MiniMax-M3",
-  "MiniMax-M2.7-highspeed",
   "MiniMax-M2.7",
-  "MiniMax-M2.5-highspeed",
   "MiniMax-M2.5",
   "MiniMax-Text-01",
 ] as const;
@@ -130,24 +130,40 @@ export async function miniMaxJson(
         throw error;
       }));
 
-  const response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 8_000,
-      reasoning_split: true,
-    }),
-    signal: AbortSignal.timeout(55_000),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt },
+        ],
+        // The trainer expects compact structured feedback, not an essay.
+        max_tokens: 4_000,
+        temperature: 0.1,
+        reasoning_split: true,
+        reasoning_effort: "low",
+      }),
+      signal: AbortSignal.timeout(150_000),
+      cache: "no-store",
+    });
+  } catch (error) {
+    const timedOut =
+      error instanceof DOMException &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
+    throw new MiniMaxApiError(
+      timedOut
+        ? "MiniMax took too long to read the paper. Please try again."
+        : "MiniMax could not be reached. Please try again.",
+      503,
+    );
+  }
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) discoveredConfig = null;
     throw new MiniMaxApiError(
@@ -157,9 +173,14 @@ export async function miniMaxJson(
       response.status === 429 ? 429 : response.status >= 500 ? 503 : 502,
     );
   }
-  const body = (await response.json()) as {
+  let body: {
     choices?: Array<{ message?: { content?: unknown } }>;
   };
+  try {
+    body = (await response.json()) as typeof body;
+  } catch {
+    throw new MiniMaxApiError("MiniMax returned an invalid response. Please try again.");
+  }
   const content = body.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) {
     throw new MiniMaxApiError("MiniMax returned an empty answer.");

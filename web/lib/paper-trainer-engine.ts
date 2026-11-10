@@ -193,6 +193,42 @@ function moduleState(module: ModuleId, question: NextQuestion): ModuleState {
   };
 }
 
+function fallbackQuestion(
+  module: ModuleId,
+  language: string,
+): NextQuestion {
+  const chinese = isChinese(language);
+  if (module === "framing") {
+    return {
+      question: chinese
+        ? "这项研究试图解决什么关键问题，为什么已有工作还不足以解决它？"
+        : "What key problem does this study address, and why was prior work insufficient?",
+      focus: chinese ? "研究问题与必要性" : "Research problem and necessity",
+      rationale: "",
+      evidence: [],
+    };
+  }
+  return {
+    question: chinese
+      ? "作者采用了什么核心方法，为什么这个方法适合研究问题？"
+      : "What core method did the authors use, and why does it fit the research question?",
+    focus: chinese ? "方法选择与合理性" : "Method choice and justification",
+    rationale: "",
+    evidence: [],
+  };
+}
+
+/** Bound first-pass latency while sampling the beginning, middle, and end. */
+function initialPaperExcerpt(paperText: string): string {
+  const limit = 32_000;
+  if (paperText.length <= limit) return paperText;
+  const head = paperText.slice(0, 14_000);
+  const middleStart = Math.max(14_000, Math.floor(paperText.length / 2) - 4_500);
+  const middle = paperText.slice(middleStart, middleStart + 9_000);
+  const tail = paperText.slice(-9_000);
+  return `${head}\n\n[Middle excerpt]\n${middle}\n\n[Final excerpt]\n${tail}`;
+}
+
 export async function preparePaper(input: {
   filename: string;
   paperText: string;
@@ -207,15 +243,15 @@ framing: ${MODULE_GUIDE.framing}
 implementation: ${MODULE_GUIDE.implementation}
 
 [Paper]
-${input.paperText.slice(0, 80_000)}`;
+${initialPaperExcerpt(input.paperText)}`;
   const result = await miniMaxJson(system, prompt);
   const outline = normalizeOutline(result.outline);
   const questions = record(result.questions);
-  const framing = nextQuestion(questions.framing);
-  const implementation = nextQuestion(questions.implementation);
-  if (!framing || !implementation) {
-    throw new Error("MiniMax did not generate both opening questions.");
-  }
+  const openingFraming =
+    nextQuestion(questions.framing) ?? fallbackQuestion("framing", input.language);
+  const openingImplementation =
+    nextQuestion(questions.implementation) ??
+    fallbackQuestion("implementation", input.language);
   const now = Date.now() / 1000;
   const filename = text(input.filename, 300) || "paper.pdf";
   return {
@@ -225,8 +261,8 @@ ${input.paperText.slice(0, 80_000)}`;
     source_url: "",
     outline,
     modules: {
-      framing: moduleState("framing", framing),
-      implementation: moduleState("implementation", implementation),
+      framing: moduleState("framing", openingFraming),
+      implementation: moduleState("implementation", openingImplementation),
     },
     created_at: now,
     updated_at: now,

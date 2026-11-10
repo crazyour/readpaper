@@ -10,7 +10,7 @@ import type { ModuleId } from "@/features/paper-trainer/model";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 function moduleId(value: unknown): ModuleId | null {
   return value === "framing" || value === "implementation" ? value : null;
