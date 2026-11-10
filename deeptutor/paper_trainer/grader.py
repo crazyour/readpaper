@@ -85,6 +85,30 @@ def _is_zh(language: str) -> bool:
     return str(language or "en").lower().startswith("zh")
 
 
+def _difficulty_prompt(difficulty: str) -> str:
+    """One stable learner-level contract shared by every trainer call."""
+    if difficulty == "beginner":
+        return (
+            "Learner level: beginner. Use plain language and one short question at "
+            "a time. Start from the paper's main problem or main method, explain any "
+            "necessary term, and provide gentle scaffolding. Do not ask for baseline "
+            "comparisons, validity analysis, evidence chains, or research-method "
+            "critique until the learner has explained the central idea. Do not assume "
+            "research-method training."
+        )
+    if difficulty == "domain":
+        return (
+            "Learner level: research and domain expert. Use the paper's technical "
+            "vocabulary; challenge novelty, assumptions, methodological choices, "
+            "evidence strength, limitations, and implications relative to the field."
+        )
+    return (
+        "Learner level: research background. Assume familiarity with research "
+        "questions, methods, experiments, and validity, but not specialist knowledge "
+        "of this paper's domain."
+    )
+
+
 async def _json_call(
     *,
     system_prompt: str,
@@ -250,6 +274,7 @@ async def ask_first_question(
     outline: PaperOutline,
     module: ModuleId,
     language: str = "en",
+    difficulty: str = "research",
 ) -> NextQuestion:
     """Open a module with its first question."""
     prompts = _load_prompts(language)
@@ -259,7 +284,7 @@ async def ask_first_question(
         "You are a research supervisor who interviews a student about a paper "
         "they wrote. You ask one short, focused question at a time and you "
         "never reveal the answer.\n\n"
-        f"{module_prompt}\n\n{question_prompt}\n\n"
+        f"{module_prompt}\n\n{question_prompt}\n\n{_difficulty_prompt(difficulty)}\n\n"
         "Return only JSON: "
         '{"question": "...", "focus": "...", "rationale": "...", '
         '"evidence": [{"section": "...", "quote": "...", "page": null, '
@@ -398,6 +423,7 @@ async def grade_answer(
     state: dict[str, Any],
     focus: str = "",
     language: str = "en",
+    difficulty: str = "research",
     paper_excerpt: str = "",
     max_excerpt_chars: int = 24000,
 ) -> RoundFeedback:
@@ -408,6 +434,7 @@ async def grade_answer(
         "their own paper. You judge understanding and choose the next question. "
         "You never hand over the standard answer.\n\n"
         f"{_fragment(prompts, module)}\n\n{_fragment(prompts, 'grading')}\n\n"
+        f"{_difficulty_prompt(difficulty)}\n\n"
         "Return only JSON: "
         '{"understanding": "incorrect|partial|correct|mastered", '
         '"correct": ["..."], "gaps": ["..."], "reasoning": ["..."], '
@@ -468,6 +495,7 @@ async def build_hint(
     module: ModuleId,
     question: str,
     language: str = "en",
+    difficulty: str = "research",
     paper_excerpt: str = "",
     max_excerpt_chars: int = 16000,
 ) -> tuple[str, list[PaperEvidence]]:
@@ -478,6 +506,7 @@ async def build_hint(
         "You point at the relevant part of the paper. You never state the "
         "answer.\n\n"
         f"{_fragment(prompts, module)}\n\n{_fragment(prompts, 'hint')}\n\n"
+        f"{_difficulty_prompt(difficulty)}\n\n"
         "Return only JSON: "
         '{"hint": "...", "evidence": [{"section": "...", "quote": "...", '
         '"page": null, "basis": "stated"}]}'
@@ -506,6 +535,7 @@ async def build_summary(
     history: list[dict[str, Any]],
     state: dict[str, Any],
     language: str = "en",
+    difficulty: str = "research",
 ) -> ModuleSummary:
     """Summarise what the student has and has not grasped in this module."""
     prompts = _load_prompts(language)
@@ -513,6 +543,7 @@ async def build_summary(
         "You are a research supervisor summarising one student's progress in "
         "one training module.\n\n"
         f"{_fragment(prompts, module)}\n\n{_fragment(prompts, 'summary')}\n\n"
+        f"{_difficulty_prompt(difficulty)}\n\n"
         "Return only JSON: "
         '{"mastered": ["..."], "gaps": ["..."], "misconceptions": ["..."], '
         '"reread": ["..."], "narrative": "..."}'

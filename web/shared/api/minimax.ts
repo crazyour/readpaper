@@ -1,8 +1,8 @@
 /** Server-side MiniMax JSON client used by the paper trainer. */
 
 const API_BASES = [
-  "https://api.minimax.io/v1",
   "https://api.minimaxi.com/v1",
+  "https://api.minimax.io/v1",
 ] as const;
 
 const PREFERRED_MODELS = [

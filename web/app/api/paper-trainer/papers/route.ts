@@ -2,6 +2,7 @@
 
 import { preparePaper } from "@/lib/paper-trainer-engine";
 import { MiniMaxApiError } from "@/shared/api/minimax";
+import { normalizePaperDifficulty } from "@/features/paper-trainer/model";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export async function POST(request: Request): Promise<Response> {
       filename?: unknown;
       paper_text?: unknown;
       language?: unknown;
+      difficulty?: unknown;
     };
     if (
       typeof body.filename !== "string" ||
@@ -35,6 +37,7 @@ export async function POST(request: Request): Promise<Response> {
       filename: body.filename,
       paperText: body.paper_text,
       language: typeof body.language === "string" ? body.language : "en",
+      difficulty: normalizePaperDifficulty(body.difficulty),
     });
     return Response.json(paper);
   } catch (error) {

@@ -27,6 +27,7 @@ import {
   MODULE_IDS,
   type ModuleId,
   type ModuleState,
+  type PaperDifficulty,
   type PaperEvidence,
   type PaperState,
 } from "@/features/paper-trainer/model";
@@ -40,6 +41,28 @@ const MODULE_GOAL: Record<ModuleId, string> = {
   framing: "Work out why this research had to be done.",
   implementation: "Work out how the research was done, and why that way.",
 };
+
+const DIFFICULTY_OPTIONS: ReadonlyArray<{
+  value: PaperDifficulty;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "beginner",
+    label: "Beginner",
+    description: "Focuses on the main idea and explains necessary terms.",
+  },
+  {
+    value: "research",
+    label: "Research background",
+    description: "Challenges methods, evidence, and research design.",
+  },
+  {
+    value: "domain",
+    label: "Research + domain background",
+    description: "Probes domain assumptions, novelty, and technical trade-offs.",
+  },
+];
 
 /**
  * The paper this browser was last working on.
@@ -61,15 +84,101 @@ async function restoreLastPaper(): Promise<PaperState | null> {
 function UploadArea({
   busy,
   dragging,
+  selectedFile,
+  difficulty,
   onPick,
   onDragState,
+  onDifficultyChange,
+  onStart,
 }: {
   busy: boolean;
   dragging: boolean;
+  selectedFile: File | null;
+  difficulty: PaperDifficulty;
   onPick: (file: File | null | undefined) => void;
   onDragState: (dragging: boolean) => void;
+  onDifficultyChange: (difficulty: PaperDifficulty) => void;
+  onStart: () => void;
 }) {
   const { t } = useTranslation();
+  if (selectedFile) {
+    return (
+      <div className="mx-auto w-full max-w-3xl py-8 sm:py-12">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
+          <div className="flex min-w-0 items-center gap-3 border-b border-border/70 pb-5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText aria-hidden size={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">
+                {t("Selected paper")}
+              </p>
+              <p className="mt-0.5 truncate text-sm font-medium text-card-foreground">
+                {selectedFile.name}
+              </p>
+            </div>
+          </div>
+
+          <fieldset className="mt-6" disabled={busy}>
+            <legend className="font-serif text-lg font-semibold text-card-foreground">
+              {t("Choose question difficulty")}
+            </legend>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {DIFFICULTY_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={[
+                    "relative flex min-h-28 cursor-pointer flex-col rounded-xl border p-4 transition-colors motion-reduce:transition-none",
+                    difficulty === option.value
+                      ? "border-primary bg-primary/[0.06] ring-1 ring-primary/20"
+                      : "border-border bg-background hover:border-primary/40",
+                    busy ? "cursor-not-allowed opacity-60" : "",
+                  ].join(" ")}
+                >
+                  <input
+                    type="radio"
+                    name="paper-difficulty"
+                    value={option.value}
+                    checked={difficulty === option.value}
+                    onChange={() => onDifficultyChange(option.value)}
+                    className="peer sr-only"
+                  />
+                  <span className="text-sm font-semibold text-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-4 peer-focus-visible:ring-offset-card">
+                    {t(option.label)}
+                  </span>
+                  <span className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {t(option.description)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Button size="md" loading={busy} onClick={onStart}>
+              {busy
+                ? t("Reading the paper and opening both modules…")
+                : t("Start paper questions")}
+            </Button>
+            <label
+              htmlFor="paper-trainer-file-replace"
+              className="inline-flex min-h-10 cursor-pointer items-center rounded-xl px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-within:ring-2 focus-within:ring-ring"
+            >
+              {t("Choose a different file")}
+              <input
+                id="paper-trainer-file-replace"
+                type="file"
+                accept=".pdf,.docx,.txt,.md"
+                className="sr-only"
+                disabled={busy}
+                onChange={(event) => onPick(event.target.files?.[0])}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="mx-auto w-full max-w-xl py-10 sm:py-16">
       <label
@@ -145,6 +254,8 @@ export default function PaperTrainerLab() {
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [difficulty, setDifficulty] = useState<PaperDifficulty>("research");
 
   const [originalOpen, setOriginalOpen] = useState(false);
   const [originalEvidence, setOriginalEvidence] = useState<PaperEvidence[]>([]);
@@ -178,11 +289,20 @@ export default function PaperTrainerLab() {
         setError(t("This file is too large. Please choose a smaller paper."));
         return;
       }
-      setUploading(true);
       setError("");
-      uploadPaper(file, language)
+      setSelectedFile(file);
+    },
+    [t, uploading],
+  );
+
+  const startPaper = useCallback(() => {
+    if (!selectedFile || uploading) return;
+    setUploading(true);
+    setError("");
+    uploadPaper(selectedFile, language, difficulty)
         .then((state) => {
           setPaper(state);
+          setSelectedFile(null);
           writeLastPaperId(state.paper_id);
         })
         .catch((cause: unknown) => {
@@ -193,9 +313,7 @@ export default function PaperTrainerLab() {
           );
         })
         .finally(() => setUploading(false));
-    },
-    [language, t, uploading],
-  );
+  }, [difficulty, language, selectedFile, t, uploading]);
 
   const handleModuleUpdate = useCallback(
     (module: ModuleId, next: ModuleState) => {
@@ -218,6 +336,7 @@ export default function PaperTrainerLab() {
 
   const startOver = () => {
     setPaper(null);
+    setSelectedFile(null);
     setError("");
     writeLastPaperId("");
   };
@@ -229,6 +348,9 @@ export default function PaperTrainerLab() {
         Boolean(entry[1]),
       )
     : [];
+  const activeDifficulty = paper
+    ? DIFFICULTY_OPTIONS.find((option) => option.value === paper.difficulty)
+    : null;
 
   return (
     <div className="h-full w-full overflow-y-auto bg-background text-foreground">
@@ -249,6 +371,11 @@ export default function PaperTrainerLab() {
                     ? paper.title || paper.filename
                     : t("Upload a paper to begin.")}
                 </span>
+                {activeDifficulty ? (
+                  <span className="shrink-0 rounded-full border border-border/80 px-2 py-0.5 text-[10.5px] font-medium text-foreground">
+                    {t(activeDifficulty.label)}
+                  </span>
+                ) : null}
               </p>
             </div>
           </div>
@@ -292,8 +419,12 @@ export default function PaperTrainerLab() {
           <UploadArea
             busy={uploading}
             dragging={dragging}
+            selectedFile={selectedFile}
+            difficulty={difficulty}
             onPick={handlePick}
             onDragState={setDragging}
+            onDifficultyChange={setDifficulty}
+            onStart={startPaper}
           />
         ) : null}
 

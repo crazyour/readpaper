@@ -2,7 +2,12 @@
 
 import { browserStorage } from "@/shared/storage";
 
-import type { ModuleId, ModuleState, PaperState } from "./model";
+import {
+  normalizePaperDifficulty,
+  type ModuleId,
+  type ModuleState,
+  type PaperState,
+} from "./model";
 
 const NAMESPACE = "deeptutor:v3:paper-trainer:paper:";
 const memory = new Map<string, StoredPaper>();
@@ -72,7 +77,10 @@ export function readPaperSession(paperId: string): StoredPaper | null {
     }
     const restored: StoredPaper = {
       version: 2,
-      paper: parsed.paper,
+      paper: {
+        ...parsed.paper,
+        difficulty: normalizePaperDifficulty(parsed.paper.difficulty),
+      },
       paperText: parsed.paperText,
       backend:
         parsed.version === 2 && parsed.backend?.kind === "cloud"

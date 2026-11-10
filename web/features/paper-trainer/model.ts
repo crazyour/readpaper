@@ -8,6 +8,18 @@
 
 export type ModuleId = "framing" | "implementation";
 
+export type PaperDifficulty = "beginner" | "research" | "domain";
+
+export const PAPER_DIFFICULTIES: readonly PaperDifficulty[] = [
+  "beginner",
+  "research",
+  "domain",
+];
+
+export function normalizePaperDifficulty(value: unknown): PaperDifficulty {
+  return value === "beginner" || value === "domain" ? value : "research";
+}
+
 export const MODULE_IDS: readonly ModuleId[] = ["framing", "implementation"];
 
 export type Understanding = "incorrect" | "partial" | "correct" | "mastered";
@@ -94,6 +106,7 @@ export interface PaperState {
   filename: string;
   title: string;
   source_url: string;
+  difficulty: PaperDifficulty;
   outline: PaperOutline;
   modules: Partial<Record<ModuleId, ModuleState>>;
   created_at: number;

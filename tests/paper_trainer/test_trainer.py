@@ -138,8 +138,8 @@ def _stub_grader(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
         calls.append({"kind": "outline"})
         return _outline()
 
-    async def _question_stub(*, outline, module, language="en"):
-        calls.append({"kind": "question", "module": module})
+    async def _question_stub(*, outline, module, language="en", difficulty="research"):
+        calls.append({"kind": "question", "module": module, "difficulty": difficulty})
         return NextQuestion(
             question=f"{module}: why is the gap worth closing?",
             focus=f"{module} focus",
@@ -343,6 +343,36 @@ async def test_uploading_a_paper_opens_both_modules(
         assert state.modules[module].current_question
     # Each module got its own question.
     assert {call["module"] for call in calls if call["kind"] == "question"} == set(MODULES)
+
+
+@pytest.mark.asyncio
+async def test_beginner_upload_starts_with_simple_questions(
+    store: PaperTrainerStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = _stub_grader(monkeypatch)
+
+    async def _fake_parse(data: bytes, filename: str) -> str:
+        return "paper text"
+
+    monkeypatch.setattr("deeptutor.paper_trainer.service._parse_paper", _fake_parse)
+
+    state = await create_paper(
+        store=store,
+        filename="plan.pdf",
+        data=b"pdf-bytes",
+        language="zh",
+        difficulty="beginner",
+    )
+
+    assert (
+        state.modules["framing"].current_question
+        == "请用自己的话说说：这篇论文主要想解决什么问题？"
+    )
+    assert (
+        state.modules["implementation"].current_question
+        == "作者用了什么主要方法来解决这个问题？"
+    )
+    assert not [call for call in calls if call["kind"] == "question"]
 
 
 # ----- structured output --------------------------------------------------

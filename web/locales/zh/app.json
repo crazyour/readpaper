@@ -6696,5 +6696,15 @@
   "e.g. the method section's main claim": "例如“方法部分的主要论点”",
   "Paper trainer questions": "论文精读提问",
   "Grades the student's close reading and writes the next question.": "批改学生的精读回答，并生成下一个问题。",
-  "Paper study trainer": "论文阅读问答训练"
+  "Paper study trainer": "论文阅读问答训练",
+  "Selected paper": "已选择论文",
+  "Choose question difficulty": "选择提问难度",
+  "Beginner": "初学者",
+  "Research background": "有研究基础",
+  "Research + domain background": "有研究和领域基础",
+  "Focuses on the main idea and explains necessary terms.": "聚焦核心思想，并解释必要术语。",
+  "Challenges methods, evidence, and research design.": "深入追问研究方法、证据和研究设计。",
+  "Probes domain assumptions, novelty, and technical trade-offs.": "检验领域假设、创新性和技术取舍。",
+  "Start paper questions": "开始论文问答",
+  "Choose a different file": "重新选择文件"
 }

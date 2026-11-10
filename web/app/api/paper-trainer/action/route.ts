@@ -6,7 +6,10 @@ import {
   gradePaperAnswer,
 } from "@/lib/paper-trainer-engine";
 import { MiniMaxApiError } from "@/shared/api/minimax";
-import type { ModuleId } from "@/features/paper-trainer/model";
+import {
+  normalizePaperDifficulty,
+  type ModuleId,
+} from "@/features/paper-trainer/model";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +44,7 @@ export async function POST(request: Request): Promise<Response> {
       state: body.state,
       outline: body.outline,
       language: typeof body.language === "string" ? body.language : "en",
+      difficulty: normalizePaperDifficulty(body.difficulty),
     };
     const state =
       body.action === "answer"

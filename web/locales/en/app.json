@@ -6697,5 +6697,15 @@
   "e.g. the method section's main claim": "e.g. the method section's main claim",
   "Paper trainer questions": "Paper trainer questions",
   "Grades the student's close reading and writes the next question.": "Grades the student's close reading and writes the next question.",
-  "Paper study trainer": "Paper study trainer"
+  "Paper study trainer": "Paper study trainer",
+  "Selected paper": "Selected paper",
+  "Choose question difficulty": "Choose question difficulty",
+  "Beginner": "Beginner",
+  "Research background": "Research background",
+  "Research + domain background": "Research + domain background",
+  "Focuses on the main idea and explains necessary terms.": "Focuses on the main idea and explains necessary terms.",
+  "Challenges methods, evidence, and research design.": "Challenges methods, evidence, and research design.",
+  "Probes domain assumptions, novelty, and technical trade-offs.": "Probes domain assumptions, novelty, and technical trade-offs.",
+  "Start paper questions": "Start paper questions",
+  "Choose a different file": "Choose a different file"
 }

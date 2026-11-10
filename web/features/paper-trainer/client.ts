@@ -6,7 +6,12 @@ import {
   saveModuleState,
   savePaperSession,
 } from "./local-store";
-import type { ModuleId, ModuleState, PaperState } from "./model";
+import type {
+  ModuleId,
+  ModuleState,
+  PaperDifficulty,
+  PaperState,
+} from "./model";
 
 const BASE = "/api/paper-trainer";
 
@@ -19,8 +24,8 @@ function cloudApiRoot(): string {
     : `${base}/api/paper-trainer`;
 }
 
-function languageQuery(language: string): string {
-  return new URLSearchParams({ language }).toString();
+function actionQuery(language: string, difficulty: PaperDifficulty): string {
+  return new URLSearchParams({ language, difficulty }).toString();
 }
 
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
@@ -65,10 +70,12 @@ async function uploadToCloud(
   apiRoot: string,
   file: File,
   language: string,
+  difficulty: PaperDifficulty,
 ): Promise<PaperState> {
   const body = new FormData();
   body.append("file", file, file.name);
   body.append("language", language);
+  body.append("difficulty", difficulty);
   const paper = await requestJson<PaperState>(`${apiRoot}/papers`, {
     method: "POST",
     body,
@@ -76,6 +83,7 @@ async function uploadToCloud(
   });
   const livePaper = {
     ...paper,
+    difficulty,
     source_url:
       absoluteCloudUrl(apiRoot, paper.source_url) || sourceUrl(file),
   };
@@ -87,11 +95,12 @@ async function uploadToCloud(
 export async function uploadPaper(
   file: File,
   language: string,
+  difficulty: PaperDifficulty,
 ): Promise<PaperState> {
   const apiRoot = cloudApiRoot();
   if (apiRoot) {
     try {
-      return await uploadToCloud(apiRoot, file, language);
+      return await uploadToCloud(apiRoot, file, language, difficulty);
     } catch (error) {
       console.warn("DeepTutor cloud parsing failed; using local extraction.", error);
     }
@@ -104,9 +113,10 @@ export async function uploadPaper(
       filename: file.name,
       paper_text: paperText,
       language,
+      difficulty,
     }),
   });
-  const livePaper = { ...paper, source_url: sourceUrl(file) };
+  const livePaper = { ...paper, difficulty, source_url: sourceUrl(file) };
   savePaperSession(livePaper, paperText);
   return livePaper;
 }
@@ -139,7 +149,7 @@ async function runAction(
           ? "hint"
           : "summary";
     const next = await requestJson<ModuleState>(
-      `${stored.backend.baseUrl}/papers/${encodeURIComponent(paperId)}/modules/${module}/${suffix}?${languageQuery(language)}`,
+      `${stored.backend.baseUrl}/papers/${encodeURIComponent(paperId)}/modules/${module}/${suffix}?${actionQuery(language, stored.paper.difficulty)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,6 +170,7 @@ async function runAction(
       outline: stored.paper.outline,
       paper_text: stored.paperText,
       language,
+      difficulty: stored.paper.difficulty,
       answer,
     }),
   });

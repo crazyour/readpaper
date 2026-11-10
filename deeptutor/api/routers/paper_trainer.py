@@ -112,6 +112,10 @@ def _language(language: str | None) -> str:
     return "zh" if str(language or "").lower().startswith("zh") else "en"
 
 
+def _difficulty(difficulty: str | None) -> str:
+    return difficulty if difficulty in {"beginner", "research", "domain"} else "research"
+
+
 def _failure(exc: Exception, *, what: str, detail: str) -> HTTPException:
     """Turn a service failure into the answer the student should see.
 
@@ -136,6 +140,7 @@ def _failure(exc: Exception, *, what: str, detail: str) -> HTTPException:
 async def upload_paper(
     file: UploadFile = File(...),
     language: str = Form(""),
+    difficulty: str = Form("research"),
 ) -> PaperResponse:
     """Upload a paper, parse it, and open both training modules on it."""
     filename = file.filename or "paper.pdf"
@@ -158,6 +163,7 @@ async def upload_paper(
             filename=filename,
             data=data,
             language=_language(language),
+            difficulty=_difficulty(difficulty),
         )
     except PaperTrainerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -185,6 +191,7 @@ async def answer_question(
     module: str,
     payload: AnswerRequest,
     language: str = "",
+    difficulty: str = "research",
 ) -> ModuleResponse:
     """Grade one answer and return the module's next question."""
     module_id = _module_or_400(module)
@@ -195,6 +202,7 @@ async def answer_question(
             module=module_id,
             answer=payload.answer,
             language=_language(language),
+            difficulty=_difficulty(difficulty),
         )
     except PaperTrainerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -232,6 +240,7 @@ async def ask_hint(
     paper_id: str,
     module: str,
     language: str = "",
+    difficulty: str = "research",
 ) -> ModuleResponse:
     """Give a pointer into the paper instead of the answer."""
     module_id = _module_or_400(module)
@@ -241,6 +250,7 @@ async def ask_hint(
             paper_id=paper_id,
             module=module_id,
             language=_language(language),
+            difficulty=_difficulty(difficulty),
         )
     except PaperTrainerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -258,6 +268,7 @@ async def get_summary(
     paper_id: str,
     module: str,
     language: str = "",
+    difficulty: str = "research",
 ) -> ModuleResponse:
     """Rebuild the module's learning summary."""
     module_id = _module_or_400(module)
@@ -267,6 +278,7 @@ async def get_summary(
             paper_id=paper_id,
             module=module_id,
             language=_language(language),
+            difficulty=_difficulty(difficulty),
         )
     except PaperTrainerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

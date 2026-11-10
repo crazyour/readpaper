@@ -26,6 +26,7 @@ from deeptutor.paper_trainer.models import (
     ModuleId,
     ModuleState,
     ModuleSummary,
+    NextQuestion,
     PaperState,
     RoundFeedback,
     RoundState,
@@ -42,6 +43,27 @@ MAX_FILENAME_CHARS = 200
 
 class PaperTrainerError(RuntimeError):
     """A refusal the API reports to the student verbatim."""
+
+
+def _beginner_question(module: ModuleId, language: str) -> NextQuestion:
+    chinese = str(language).lower().startswith("zh")
+    if module == "framing":
+        return NextQuestion(
+            question=(
+                "请用自己的话说说：这篇论文主要想解决什么问题？"
+                if chinese
+                else "In your own words, what main problem is this paper trying to solve?"
+            ),
+            focus="核心问题" if chinese else "Core problem",
+        )
+    return NextQuestion(
+        question=(
+            "作者用了什么主要方法来解决这个问题？"
+            if chinese
+            else "What main method did the authors use to address that problem?"
+        ),
+        focus="主要方法" if chinese else "Main method",
+    )
 
 
 def _paper_id(filename: str, data: bytes) -> str:
@@ -176,6 +198,7 @@ async def create_paper(
     filename: str,
     data: bytes,
     language: str = "en",
+    difficulty: str = "research",
 ) -> PaperState:
     """Parse a paper and open both training modules on it.
 
@@ -215,8 +238,15 @@ async def create_paper(
 
     modules: dict[str, ModuleState] = {}
     for module in MODULES:
-        question = await grader.ask_first_question(
-            outline=outline, module=module, language=language
+        question = (
+            _beginner_question(module, language)
+            if difficulty == "beginner"
+            else await grader.ask_first_question(
+                outline=outline,
+                module=module,
+                language=language,
+                difficulty=difficulty,
+            )
         )
         state = ModuleState(
             module=module,
@@ -243,6 +273,7 @@ async def submit_answer(
     module: ModuleId,
     answer: str,
     language: str = "en",
+    difficulty: str = "research",
     paper_text: str = "",
 ) -> ModuleState:
     """Grade one answer for the module's current question.
@@ -287,6 +318,7 @@ async def submit_answer(
         state=_summary_payload(state),
         focus=state.current_focus,
         language=language,
+        difficulty=difficulty,
         paper_excerpt=paper_text,
     )
 
@@ -367,6 +399,7 @@ async def request_hint(
     paper_id: str,
     module: ModuleId,
     language: str = "en",
+    difficulty: str = "research",
     paper_text: str = "",
 ) -> ModuleState:
     """Give the student a pointer into the paper instead of the answer."""
@@ -384,6 +417,7 @@ async def request_hint(
         module=module,
         question=state.current_question,
         language=language,
+        difficulty=difficulty,
         paper_excerpt=paper_text,
     )
     state.hint = hint
@@ -398,6 +432,7 @@ async def refresh_summary(
     paper_id: str,
     module: ModuleId,
     language: str = "en",
+    difficulty: str = "research",
 ) -> ModuleState:
     """Rebuild the module's learning summary from its exchanges."""
     paper = await asyncio.to_thread(store.get_paper, paper_id)
@@ -413,6 +448,7 @@ async def refresh_summary(
         history=_rounds_payload(state),
         state=_summary_payload(state),
         language=language,
+        difficulty=difficulty,
     )
     state.summary = summary
     await asyncio.to_thread(store.save_module, paper_id, state)
