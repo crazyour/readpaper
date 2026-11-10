@@ -17,12 +17,9 @@ const alpha = name => `color-mix(in srgb, var(${name}) calc(<alpha-value> * 100%
 module.exports = {
   darkMode: 'class',
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './features/**/*.{js,ts,jsx,tsx,mdx}',
-    './shared/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './lib/reading-age-presentation.ts',
+    './components/paper-trainer/**/*.{js,ts,jsx,tsx,mdx}',
+    './shared/ui/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {

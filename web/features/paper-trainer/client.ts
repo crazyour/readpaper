@@ -1,7 +1,5 @@
 /** Browser client for the Vercel-native, locally persisted paper trainer. */
 
-import { requestJson } from "@/shared/api/client";
-
 import { extractPaperText } from "./extract";
 import {
   readPaperSession,
@@ -11,6 +9,23 @@ import {
 import type { ModuleId, ModuleState, PaperState } from "./model";
 
 const BASE = "/api/paper-trainer";
+
+async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const body = (await response.json().catch(() => null)) as
+    | Record<string, unknown>
+    | null;
+  if (!response.ok) {
+    const detail = body?.detail;
+    throw new Error(
+      typeof detail === "string" && detail.trim()
+        ? detail
+        : `Request failed with HTTP ${response.status}.`,
+    );
+  }
+  if (!body) throw new Error("The server returned an invalid response.");
+  return body as T;
+}
 
 export const SUPPORTED_SUFFIXES = [".pdf", ".docx", ".txt", ".md"] as const;
 export const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;

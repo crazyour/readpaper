@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { FilePreviewSource } from "../previewerFor";
 
 /**
  * PDF preview powered by the browser's built-in viewer (PDF.js in Chrome /
@@ -18,7 +17,7 @@ export default function PdfPreview({
   filename,
 }: {
   url: string;
-  filename: FilePreviewSource["filename"];
+  filename: string;
 }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
