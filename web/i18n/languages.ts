@@ -1,10 +1,11 @@
-/** UI locales that have a selectable bundle. The bundles may fall back to English per key. */
+/** The web interface is intentionally Chinese-only. */
 export const APP_LANGUAGES = [
-  { code: "en", labelKey: "language.english" },
   { code: "zh", labelKey: "language.chinese" },
 ] as const;
 
-export type AppLanguage = (typeof APP_LANGUAGES)[number]["code"];
+// Keep the legacy English value in the type while stored settings migrate.
+// Runtime normalization below always resolves the interface to Chinese.
+export type AppLanguage = "zh" | "en";
 
 const SUPPORTED_CODES: ReadonlySet<string> = new Set(
   APP_LANGUAGES.map(({ code }) => code),
@@ -15,13 +16,8 @@ export function isAppLanguage(value: unknown): value is AppLanguage {
 }
 
 export function normalizeLanguage(value: unknown): AppLanguage {
-  if (typeof value !== "string") return "en";
-  // replaceAll is unavailable in older Safari releases still used by some
-  // iPads. A global regular expression has identical behaviour here.
-  const code = value.trim().toLowerCase().replace(/_/g, "-");
-  const base = code.split("-", 1)[0];
-  if (base === "zh" || base === "cn" || code === "chinese") return "zh";
-  return "en";
+  void value;
+  return "zh";
 }
 
 /** Model output can use more languages than the app UI locale supports. */

@@ -6650,6 +6650,14 @@
   "Upload a paper to begin.": "上传一篇论文即可开始。",
   "PDF, Word, Markdown or plain text.": "支持 PDF、Word、Markdown 或纯文本。",
   "Reading the paper and opening both modules…": "正在读取论文并打开两个训练模块…",
+  "Extracting the paper text…": "正在提取论文文本…",
+  "Reading and structuring the paper…": "正在阅读并整理论文结构…",
+  "Preparing both opening questions…": "正在生成两个模块的开场问题…",
+  "Still working…": "仍在处理中…",
+  "Checking your answer against the paper…": "正在结合论文原文检查你的回答…",
+  "Finding the most relevant passage…": "正在查找最相关的原文片段…",
+  "Updating your learning summary…": "正在更新学习总结…",
+  "Opening the next question…": "正在打开下一个问题…",
   "Only PDF, Word, Markdown and plain-text papers are supported.": "仅支持 PDF、Word、Markdown 和纯文本论文。",
   "This file is too large. Please choose a smaller paper.": "文件过大，请选择更小的论文。",
   "The paper could not be prepared. Please try again.": "无法准备这篇论文，请重试。",
@@ -6690,6 +6698,9 @@
   "Understanding: grasped": "理解充分",
   "Original paper": "论文原文",
   "Cited passages": "引用片段",
+  "The preview could not be loaded.": "无法加载原文预览。",
+  "Try again, or open the original file in a new tab.": "请重试，或在新标签页中打开原始文件。",
+  "No cited passages yet. Complete a round or request a hint to add them here.": "暂时还没有引用片段。完成一轮回答或请求提示后，相关原文会显示在这里。",
   "The original file is not available.": "原始文件不可用。",
   "Go back to the paper and look for the section the tutor named.": "回到原文，找到导师提到的章节。",
   "Something went wrong. Please try again.": "出了点问题，请重试。",
@@ -6706,5 +6717,6 @@
   "Challenges methods, evidence, and research design.": "深入追问研究方法、证据和研究设计。",
   "Probes domain assumptions, novelty, and technical trade-offs.": "检验领域假设、创新性和技术取舍。",
   "Start paper questions": "开始论文问答",
-  "Choose a different file": "重新选择文件"
+  "Choose a different file": "重新选择文件",
+  "The tutor reads the paper first. Then it asks, you answer, and it keeps asking until your reasoning holds up.": "导师会先阅读论文，然后开始提问；你作答后，它会继续追问，直到你的推理经得起检验。"
 }

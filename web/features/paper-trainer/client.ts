@@ -12,8 +12,19 @@ import type {
   PaperDifficulty,
   PaperState,
 } from "./model";
+import { paperSourceUrl, savePaperSourceFile } from "./source-file-store";
 
 const BASE = "/api/paper-trainer";
+
+class PaperTrainerHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "PaperTrainerHttpError";
+  }
+}
 
 function cloudApiRoot(): string {
   const configured = (process.env.NEXT_PUBLIC_API_BASE ?? "").trim();
@@ -35,10 +46,11 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
     | null;
   if (!response.ok) {
     const detail = body?.detail;
-    throw new Error(
+    throw new PaperTrainerHttpError(
       typeof detail === "string" && detail.trim()
         ? detail
         : `Request failed with HTTP ${response.status}.`,
+      response.status,
     );
   }
   if (!body) throw new Error("The server returned an invalid response.");
@@ -81,11 +93,14 @@ async function uploadToCloud(
     body,
     credentials: "include",
   });
+  await savePaperSourceFile(paper.paper_id, file);
   const livePaper = {
     ...paper,
     difficulty,
     source_url:
-      absoluteCloudUrl(apiRoot, paper.source_url) || sourceUrl(file),
+      absoluteCloudUrl(apiRoot, paper.source_url) ||
+      (await paperSourceUrl(paper.paper_id)) ||
+      sourceUrl(file),
   };
   savePaperSession(livePaper, "", { kind: "cloud", baseUrl: apiRoot });
   return livePaper;
@@ -102,6 +117,11 @@ export async function uploadPaper(
     try {
       return await uploadToCloud(apiRoot, file, language, difficulty);
     } catch (error) {
+      // A backend/model error is already actionable. Running the complete
+      // local model pipeline afterwards only doubles latency and cost. Keep a
+      // fallback for genuine transport/CORS failures, where the local route
+      // may still be reachable.
+      if (error instanceof PaperTrainerHttpError) throw error;
       console.warn("DeepTutor cloud parsing failed; using local extraction.", error);
     }
   }
@@ -116,17 +136,28 @@ export async function uploadPaper(
       difficulty,
     }),
   });
-  const livePaper = { ...paper, difficulty, source_url: sourceUrl(file) };
+  await savePaperSourceFile(paper.paper_id, file);
+  const livePaper = {
+    ...paper,
+    difficulty,
+    source_url: (await paperSourceUrl(paper.paper_id)) || sourceUrl(file),
+  };
   savePaperSession(livePaper, paperText);
   return livePaper;
 }
 
 /** Restore from this browser; Vercel holds no per-user database. */
-export function getPaper(paperId: string): Promise<PaperState> {
+export async function getPaper(paperId: string): Promise<PaperState> {
   const stored = readPaperSession(paperId);
-  return stored
-    ? Promise.resolve(stored.paper)
-    : Promise.reject(new Error("This paper is no longer available in this browser."));
+  if (!stored) {
+    throw new Error("This paper is no longer available in this browser.");
+  }
+  if (stored.paper.source_url) return stored.paper;
+  const restoredUrl = await paperSourceUrl(paperId);
+  if (!restoredUrl) return stored.paper;
+  const paper = { ...stored.paper, source_url: restoredUrl };
+  savePaperSession(paper, stored.paperText, stored.backend);
+  return paper;
 }
 
 async function runAction(

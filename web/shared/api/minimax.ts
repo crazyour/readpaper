@@ -1,8 +1,8 @@
 /** Server-side MiniMax JSON client used by the paper trainer. */
 
 const API_BASES = [
-  "https://api.minimaxi.com/v1",
   "https://api.minimax.io/v1",
+  "https://api.minimaxi.com/v1",
 ] as const;
 
 const PREFERRED_MODELS = [
@@ -20,9 +20,11 @@ interface MiniMaxConfig {
   model: string;
 }
 
-interface MiniMaxDependencies {
+interface MiniMaxOptions {
   apiKey?: string;
   fetchImpl?: typeof fetch;
+  maxTokens?: number;
+  reasoningEffort?: "none" | "low";
 }
 
 let discoveredConfig: Promise<MiniMaxConfig> | null = null;
@@ -37,8 +39,8 @@ export class MiniMaxApiError extends Error {
   }
 }
 
-function apiKey(dependencies: MiniMaxDependencies): string {
-  const key = (dependencies.apiKey ?? process.env.MINIMAX_API_KEY ?? "").trim();
+function apiKey(options: MiniMaxOptions): string {
+  const key = (options.apiKey ?? process.env.MINIMAX_API_KEY ?? "").trim();
   if (!key) {
     throw new MiniMaxApiError(
       "MINIMAX_API_KEY is not configured in the Vercel project.",
@@ -46,6 +48,35 @@ function apiKey(dependencies: MiniMaxDependencies): string {
     );
   }
   return key;
+}
+
+function configuredModel(): MiniMaxConfig | null {
+  const model = (process.env.MINIMAX_MODEL ?? "").trim();
+  const baseUrl = (process.env.MINIMAX_API_BASE ?? "").trim().replace(/\/+$/, "");
+  return model && baseUrl ? { model, baseUrl } : null;
+}
+
+function reasoningBody(
+  model: string,
+  effort: "none" | "low",
+): Record<string, unknown> {
+  const normalized = model.toLowerCase();
+  if (normalized === "minimax-m3") {
+    return {
+      thinking: { type: effort === "none" ? "disabled" : "adaptive" },
+    };
+  }
+  if (normalized === "minimax-m3.1-flash") {
+    // Flash always reasons adaptively; low is its cheapest supported effort.
+    return {
+      thinking: { type: "adaptive" },
+      reasoning_split: true,
+      reasoning_effort: "low",
+    };
+  }
+  return effort === "none"
+    ? { reasoning_split: false }
+    : { reasoning_split: true, reasoning_effort: "low" };
 }
 
 function preferredModel(models: unknown): string | null {
@@ -119,16 +150,18 @@ function jsonObject(content: string): Record<string, unknown> {
 export async function miniMaxJson(
   system: string,
   prompt: string,
-  dependencies: MiniMaxDependencies = {},
+  options: MiniMaxOptions = {},
 ): Promise<Record<string, unknown>> {
-  const key = apiKey(dependencies);
-  const fetchImpl = dependencies.fetchImpl ?? fetch;
-  const config = dependencies.fetchImpl
+  const started = performance.now();
+  const key = apiKey(options);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const config = options.fetchImpl
     ? await discover(key, fetchImpl)
-    : await (discoveredConfig ??= discover(key, fetchImpl).catch((error) => {
-        discoveredConfig = null;
-        throw error;
-      }));
+    : configuredModel() ??
+      (await (discoveredConfig ??= discover(key, fetchImpl).catch((error) => {
+          discoveredConfig = null;
+          throw error;
+        })));
 
   let response: Response;
   try {
@@ -145,10 +178,9 @@ export async function miniMaxJson(
           { role: "user", content: prompt },
         ],
         // The trainer expects compact structured feedback, not an essay.
-        max_tokens: 4_000,
+        max_tokens: options.maxTokens ?? 2_400,
         temperature: 0.1,
-        reasoning_split: true,
-        reasoning_effort: "low",
+        ...reasoningBody(config.model, options.reasoningEffort ?? "none"),
       }),
       signal: AbortSignal.timeout(150_000),
       cache: "no-store",
@@ -185,5 +217,11 @@ export async function miniMaxJson(
   if (typeof content !== "string" || !content.trim()) {
     throw new MiniMaxApiError("MiniMax returned an empty answer.");
   }
-  return jsonObject(content);
+  const result = jsonObject(content);
+  console.info("Paper trainer MiniMax call", {
+    model: config.model,
+    promptChars: system.length + prompt.length,
+    elapsedMs: Math.round(performance.now() - started),
+  });
+  return result;
 }

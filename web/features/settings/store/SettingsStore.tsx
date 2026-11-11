@@ -678,7 +678,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const stageUiRef = useRef<(patch: Partial<UiSettings>) => Promise<void>>(
     async () => {},
   );
-  const [language, setLanguage] = useState<UiSettings["language"]>("en");
+  const [language, setLanguage] = useState<UiSettings["language"]>("zh");
   const [responseLanguage, setResponseLanguage] =
     useState<UiSettings["response_language"]>("en");
   const [catalog, setCatalog] = useState<Catalog>(defaultCatalog());
@@ -831,7 +831,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
       serverThemeLoadedRef.current = true;
       setTheme(loadedTheme);
-      setLanguage(payload.ui.language);
+      setLanguage("zh");
       const loadedResponseLanguage =
         payload.ui.response_language ?? payload.ui.language;
       setResponseLanguage(loadedResponseLanguage);
@@ -842,7 +842,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // language alone therefore left the server (and this page) showing 中文
       // while every turn still shipped the "en" the bootstrap had stamped —
       // the "I set Chinese and it answers in English" report.
-      writeStoredLanguage(payload.ui.language);
+      writeStoredLanguage("zh");
       writeStoredResponseLanguage(loadedResponseLanguage);
       // Writes the backend-loaded values into app-shell storage and dispatches
       // the code-block settings event; AppShellContext (the single source) picks
@@ -1002,8 +1002,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       applyThemePreference(ui.theme);
     }
     if (ui.language) {
-      setLanguage(ui.language);
-      writeStoredLanguage(ui.language);
+      setLanguage("zh");
+      writeStoredLanguage("zh");
     }
     if (ui.response_language) {
       setResponseLanguage(ui.response_language);

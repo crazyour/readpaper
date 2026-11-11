@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
@@ -176,6 +176,7 @@ export default function TrainingColumn({
   const { t } = useTranslation();
   const [draft, setDraft] = useState(() => readDraft(paperId, module));
   const [busy, setBusy] = useState<Busy>(null);
+  const [busySeconds, setBusySeconds] = useState(0);
   const [error, setError] = useState("");
   const [revising, setRevising] = useState(false);
   const [draftBeforeRevision, setDraftBeforeRevision] = useState("");
@@ -189,6 +190,29 @@ export default function TrainingColumn({
     (item) => item.answer.trim().length > 0,
   ).length;
   const Icon = MODULE_ICON[module];
+  const busyMessage =
+    busy === "answer"
+      ? t("Checking your answer against the paper…")
+      : busy === "hint"
+        ? t("Finding the most relevant passage…")
+        : busy === "summary"
+          ? t("Updating your learning summary…")
+          : busy === "advance"
+            ? t("Opening the next question…")
+            : "";
+
+  useEffect(() => {
+    if (!busy) {
+      setBusySeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const timer = window.setInterval(
+      () => setBusySeconds(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   const updateDraft = useCallback(
     (value: string) => {
@@ -277,6 +301,22 @@ export default function TrainingColumn({
               <InlineText text={state.current_question} />
             </p>
           </div>
+        ) : null}
+
+        {busy && busyMessage ? (
+          <p
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
+            <span>{busyMessage}</span>
+            {busySeconds >= 5 ? (
+              <span aria-hidden className="tabular-nums">
+                {busySeconds}s
+              </span>
+            ) : null}
+          </p>
         ) : null}
 
         {showComposer ? (

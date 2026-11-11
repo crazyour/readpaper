@@ -19,6 +19,7 @@ import asyncio
 import hashlib
 import logging
 from pathlib import Path
+import time
 from typing import Any
 
 from deeptutor.paper_trainer import grader
@@ -205,11 +206,38 @@ async def create_paper(
     Both modules get their own first question, generated independently: a
     student may work on either one first, and neither waits for the other.
     """
+    started = time.perf_counter()
     name = Path(filename or "paper.pdf").name[:MAX_FILENAME_CHARS]
     paper_text = await _parse_paper(data, name)
     paper_id = _paper_id(name, data)
 
-    outline = await grader.build_outline(paper_text=paper_text, language=language)
+    if difficulty == "beginner":
+        outline = await grader.build_outline(paper_text=paper_text, language=language)
+        opening_questions = {
+            module: _beginner_question(module, language) for module in MODULES
+        }
+    else:
+        outline, opening_questions = await grader.prepare_paper(
+            paper_text=paper_text,
+            language=language,
+            difficulty=difficulty,
+        )
+        missing = [
+            module for module in MODULES if not opening_questions[module].question
+        ]
+        if missing:
+            generated = await asyncio.gather(
+                *(
+                    grader.ask_first_question(
+                        outline=outline,
+                        module=module,
+                        language=language,
+                        difficulty=difficulty,
+                    )
+                    for module in missing
+                )
+            )
+            opening_questions.update(dict(zip(missing, generated)))
     title = outline.title or Path(name).stem
 
     source_url = ""
@@ -234,20 +262,12 @@ async def create_paper(
         title=title,
         source_url=source_url,
         outline=outline,
+        paper_text=paper_text,
     )
 
     modules: dict[str, ModuleState] = {}
     for module in MODULES:
-        question = (
-            _beginner_question(module, language)
-            if difficulty == "beginner"
-            else await grader.ask_first_question(
-                outline=outline,
-                module=module,
-                language=language,
-                difficulty=difficulty,
-            )
-        )
+        question = opening_questions[module]
         state = ModuleState(
             module=module,
             current_question=question.question,
@@ -255,6 +275,13 @@ async def create_paper(
         )
         modules[module] = state
         await asyncio.to_thread(store.save_module, paper_id, state)
+
+    logger.info(
+        "paper trainer prepared paper_id=%s chars=%d elapsed_ms=%d",
+        paper_id,
+        len(paper_text),
+        round((time.perf_counter() - started) * 1000),
+    )
 
     return PaperState(
         paper_id=paper_id,
@@ -298,6 +325,9 @@ async def submit_answer(
         raise PaperTrainerError("This training module is not open yet.")
     if not state.current_question:
         raise PaperTrainerError("This module has no question waiting for an answer.")
+
+    if not paper_text:
+        paper_text = await asyncio.to_thread(store.get_paper_text, paper_id)
 
     question = state.current_question
     current = state.rounds[-1] if state.rounds else None
@@ -411,6 +441,9 @@ async def request_hint(
         raise PaperTrainerError("This training module is not open yet.")
     if not state.current_question:
         raise PaperTrainerError("There is no question waiting for a hint.")
+
+    if not paper_text:
+        paper_text = await asyncio.to_thread(store.get_paper_text, paper_id)
 
     hint, evidence = await grader.build_hint(
         outline=paper.outline,

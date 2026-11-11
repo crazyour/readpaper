@@ -146,6 +146,17 @@ def _stub_grader(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
             rationale="It is the module's core.",
         )
 
+    async def _prepare_stub(*, paper_text, language="en", difficulty="research"):
+        calls.append({"kind": "prepare", "difficulty": difficulty})
+        return _outline(), {
+            module: NextQuestion(
+                question=f"{module}: why is the gap worth closing?",
+                focus=f"{module} focus",
+                rationale="It is the module's core.",
+            )
+            for module in MODULES
+        }
+
     async def _grade_stub(**kwargs):
         calls.append(
             {
@@ -153,6 +164,7 @@ def _stub_grader(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
                 "module": kwargs["module"],
                 "state": kwargs["state"],
                 "focus": kwargs["focus"],
+                "paper_excerpt": kwargs["paper_excerpt"],
             }
         )
         return RoundFeedback(
@@ -191,6 +203,7 @@ def _stub_grader(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
         )
 
     monkeypatch.setattr(grader, "build_outline", _outline_stub)
+    monkeypatch.setattr(grader, "prepare_paper", _prepare_stub)
     monkeypatch.setattr(grader, "ask_first_question", _question_stub)
     monkeypatch.setattr(grader, "grade_answer", _grade_stub)
     monkeypatch.setattr(grader, "build_hint", _hint_stub)
@@ -341,8 +354,34 @@ async def test_uploading_a_paper_opens_both_modules(
     assert set(state.modules) == set(MODULES)
     for module in MODULES:
         assert state.modules[module].current_question
-    # Each module got its own question.
-    assert {call["module"] for call in calls if call["kind"] == "question"} == set(MODULES)
+    # The outline and both opening questions share one model round-trip.
+    assert len([call for call in calls if call["kind"] == "prepare"]) == 1
+    assert not [call for call in calls if call["kind"] == "question"]
+
+
+@pytest.mark.asyncio
+async def test_uploaded_text_is_reused_for_later_evidence(
+    store: PaperTrainerStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = _stub_grader(monkeypatch)
+
+    async def _fake_parse(data: bytes, filename: str) -> str:
+        return "Exact source passage retained for later grading."
+
+    monkeypatch.setattr("deeptutor.paper_trainer.service._parse_paper", _fake_parse)
+    state = await create_paper(
+        store=store, filename="plan.pdf", data=b"pdf-bytes", language="en"
+    )
+
+    await submit_answer(
+        store=store,
+        paper_id=state.paper_id,
+        module="framing",
+        answer="My interpretation.",
+    )
+
+    grade_call = next(call for call in calls if call["kind"] == "grade")
+    assert grade_call["paper_excerpt"] == "Exact source passage retained for later grading."
 
 
 @pytest.mark.asyncio
@@ -387,6 +426,22 @@ def test_malformed_evidence_is_dropped_not_fatal() -> None:
     assert parsed[0].section == "s"
 
 
+def test_evidence_aliases_are_kept_but_section_only_rows_are_not() -> None:
+    from deeptutor.paper_trainer.store import evidence_from_dicts
+
+    parsed = evidence_from_dicts(
+        [
+            {"heading": "3 Method", "snippet": "An exact source sentence.", "page": "4"},
+            {"section": "4 Results"},
+        ]
+    )
+
+    assert len(parsed) == 1
+    assert parsed[0].section == "3 Method"
+    assert parsed[0].quote == "An exact source sentence."
+    assert parsed[0].page == 4
+
+
 def test_feedback_survives_a_missing_section() -> None:
     from deeptutor.paper_trainer.store import feedback_from_dict
 
@@ -421,6 +476,23 @@ def test_an_outline_survives_list_valued_scalar_fields() -> None:
     assert outline.results == "28.4 BLEU"
     assert outline.methods == ["self-attention", "feed-forward layers"]
     assert outline.sections == ["1 Introduction", "3.2 Complexity"]
+
+
+def test_relevant_excerpt_prefers_the_passage_named_by_the_question() -> None:
+    from deeptutor.paper_trainer.grader import _relevant_excerpt
+
+    filler = "Background material without the target concept. " * 90
+    target = "Scaled dot-product attention divides by the square root of d_k."
+    paper = f"{filler}\n\n3.2 Attention\n{target}\n\n{filler}"
+
+    excerpt = _relevant_excerpt(
+        paper,
+        "Why does scaled dot-product attention divide by sqrt d_k?",
+        max_chars=3000,
+    )
+
+    assert target in excerpt
+    assert len(excerpt) <= 3000
 
 
 def test_repeated_failure_on_one_point_is_counted() -> None:

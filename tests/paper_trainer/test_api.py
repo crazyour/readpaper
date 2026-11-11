@@ -51,6 +51,15 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
             focus=f"{module} focus",
         )
 
+    async def _prepare_stub(*, paper_text, language="en", difficulty="research"):
+        return _outline(), {
+            module: NextQuestion(
+                question=f"{module}: why is the gap worth closing?",
+                focus=f"{module} focus",
+            )
+            for module in MODULES
+        }
+
     async def _grade_stub(**kwargs):
         module = kwargs["module"]
         return RoundFeedback(
@@ -94,6 +103,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         return "paper text"
 
     monkeypatch.setattr(grader, "build_outline", _outline_stub)
+    monkeypatch.setattr(grader, "prepare_paper", _prepare_stub)
     monkeypatch.setattr(grader, "ask_first_question", _question_stub)
     monkeypatch.setattr(grader, "grade_answer", _grade_stub)
     monkeypatch.setattr(grader, "build_hint", _hint_stub)

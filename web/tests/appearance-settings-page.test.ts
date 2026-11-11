@@ -28,14 +28,14 @@ function readOverviewPage() {
   return fs.readFileSync(overviewPagePath, "utf8");
 }
 
-test("settings source contract: language settings live on Overview instead of Appearance", () => {
+test("settings source contract: the interface is Chinese-only while reply language remains configurable", () => {
   const appearance = readAppearancePage();
   const overview = readOverviewPage();
 
   assert.doesNotMatch(appearance, /title=\{t\("Language"\)\}/);
   assert.doesNotMatch(appearance, /updateLanguage|updateResponseLanguage/);
-  assert.match(overview, /title=\{t\("Language"\)\}/);
-  assert.match(overview, /updateLanguage/);
+  assert.doesNotMatch(overview, /Interface language|updateLanguage/);
+  assert.match(overview, /title=\{t\("Reply language"\)\}/);
   assert.match(overview, /updateResponseLanguage/);
 });
 

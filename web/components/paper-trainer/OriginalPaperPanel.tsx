@@ -124,7 +124,9 @@ export default function OriginalPaperPanel({
             </ul>
           ) : (
             <p className="mt-2 text-[12px] leading-[1.7] text-muted-foreground">
-              {t("Go back to the paper and look for the section the tutor named.")}
+              {t(
+                "No cited passages yet. Complete a round or request a hint to add them here.",
+              )}
             </p>
           )}
         </div>

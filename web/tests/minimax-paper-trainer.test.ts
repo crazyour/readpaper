@@ -14,6 +14,8 @@ test("MiniMax discovery selects a current model and parses fenced JSON", async (
     }
     const request = JSON.parse(String(init?.body));
     assert.equal(request.model, "MiniMax-M3.1-Flash");
+    assert.equal(request.reasoning_effort, "low");
+    assert.deepEqual(request.thinking, { type: "adaptive" });
     return Response.json({
       choices: [{ message: { content: "```json\n{\"ok\":true}\n```" } }],
     });
@@ -30,7 +32,7 @@ test("MiniMax discovery selects a current model and parses fenced JSON", async (
 
 test("MiniMax discovery falls back from the global to the China platform", async () => {
   const calls: string[] = [];
-  const fetchImpl: typeof fetch = async (input) => {
+  const fetchImpl: typeof fetch = async (input, init) => {
     const url = String(input);
     calls.push(url);
     if (url === "https://api.minimax.io/v1/models") {
@@ -39,6 +41,8 @@ test("MiniMax discovery falls back from the global to the China platform", async
     if (url === "https://api.minimaxi.com/v1/models") {
       return Response.json({ data: [{ id: "MiniMax-M3" }] });
     }
+    const request = JSON.parse(String(init?.body ?? "{}"));
+    assert.deepEqual(request.thinking, { type: "disabled" });
     return Response.json({
       choices: [{ message: { content: '{"region":"china"}' } }],
     });

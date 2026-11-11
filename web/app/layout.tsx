@@ -6,8 +6,8 @@ import RootProviders from "@/components/RootProviders";
 export const viewport: Viewport = { interactiveWidget: "resizes-content" };
 
 export const metadata: Metadata = {
-  title: "Paper Study Trainer",
-  description: "Read a research paper through focused questions and feedback.",
+  title: "论文精读训练",
+  description: "通过聚焦提问与反馈，深入理解研究论文。",
   icons: {
     icon: [
       { url: "/brand/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh-CN"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
     >

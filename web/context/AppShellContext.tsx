@@ -65,7 +65,6 @@ import {
   normalizeLearningDisplay,
   type LearningDisplay,
 } from "@/lib/learning-display";
-import { isAppLanguage } from "@/i18n/languages";
 
 interface AppShellContextValue {
   theme: Theme;
@@ -91,9 +90,8 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     return getStoredTheme() ?? getSystemTheme();
   });
-  // Always start with "en" to match SSR; hydrate from localStorage after mount
-  const [language, setLanguageState] = useState<AppLanguage>("en");
-  const [languageReady, setLanguageReady] = useState(false);
+  const [language, setLanguageState] = useState<AppLanguage>("zh");
+  const [languageReady, setLanguageReady] = useState(true);
   const [activeSessionId, setActiveSessionIdState] = useState<string | null>(
     () => readStoredActiveSessionId(),
   );
@@ -230,12 +228,11 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
           language?: unknown;
           response_language?: unknown;
         };
-        if (!isAppLanguage(payload.language)) return;
         // Only what this browser is actually missing: a stored interface
         // language is this user's own choice and the server must not overwrite
         // it just because the response key was absent.
         const hadLanguage = hasStoredLanguage();
-        if (!hadLanguage) writeStoredLanguage(payload.language);
+        writeStoredLanguage("zh");
         if (!hasStoredResponseLanguage()) {
           // A backend that predates the split sends no response_language;
           // resolveResponseLanguage inherits the interface locale, matching
@@ -245,11 +242,11 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
               typeof payload.response_language === "string"
                 ? payload.response_language
                 : null,
-              payload.language,
+              "zh",
             ),
           );
         }
-        if (!cancelled && !hadLanguage) setLanguageState(payload.language);
+        if (!cancelled && !hadLanguage) setLanguageState("zh");
       } catch {
         // Offline or unauthenticated: keep the local default.
       } finally {
@@ -366,8 +363,9 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setLanguage = useCallback((nextLanguage: AppLanguage) => {
-    writeStoredLanguage(nextLanguage);
-    setLanguageState(nextLanguage);
+    void nextLanguage;
+    writeStoredLanguage("zh");
+    setLanguageState("zh");
     setLanguageReady(true);
   }, []);
 

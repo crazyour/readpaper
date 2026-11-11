@@ -64,6 +64,29 @@ const DIFFICULTY_OPTIONS: ReadonlyArray<{
   },
 ];
 
+function paperEvidence(paper: PaperState): PaperEvidence[] {
+  const collected: PaperEvidence[] = [];
+  const seen = new Set<string>();
+  for (const state of Object.values(paper.modules)) {
+    if (!state) continue;
+    const groups = [
+      state.hint_evidence,
+      ...state.rounds.flatMap((round) => [
+        round.evidence,
+        round.feedback?.evidence ?? [],
+      ]),
+    ];
+    for (const item of groups.flat()) {
+      if (!item.section && !item.quote) continue;
+      const key = `${item.section}\u0000${item.quote}\u0000${item.page ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      collected.push(item);
+    }
+  }
+  return collected;
+}
+
 /**
  * The paper this browser was last working on.
  *
@@ -83,6 +106,7 @@ async function restoreLastPaper(): Promise<PaperState | null> {
 
 function UploadArea({
   busy,
+  busySeconds,
   dragging,
   selectedFile,
   difficulty,
@@ -92,6 +116,7 @@ function UploadArea({
   onStart,
 }: {
   busy: boolean;
+  busySeconds: number;
   dragging: boolean;
   selectedFile: File | null;
   difficulty: PaperDifficulty;
@@ -101,6 +126,14 @@ function UploadArea({
   onStart: () => void;
 }) {
   const { t } = useTranslation();
+  const busyMessage =
+    busySeconds < 3
+      ? t("Extracting the paper text…")
+      : busySeconds < 10
+        ? t("Reading and structuring the paper…")
+        : busySeconds < 25
+          ? t("Preparing both opening questions…")
+          : t("Still working…");
   if (selectedFile) {
     return (
       <div className="mx-auto w-full max-w-3xl py-8 sm:py-12">
@@ -156,9 +189,7 @@ function UploadArea({
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button size="md" loading={busy} onClick={onStart}>
-              {busy
-                ? t("Reading the paper and opening both modules…")
-                : t("Start paper questions")}
+              {busy ? busyMessage : t("Start paper questions")}
             </Button>
             <label
               htmlFor="paper-trainer-file-replace"
@@ -175,6 +206,20 @@ function UploadArea({
               />
             </label>
           </div>
+          {busy ? (
+            <p
+              className="mt-3 text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              {busyMessage}
+              {busySeconds >= 5 ? (
+                <span aria-hidden className="ml-1 tabular-nums">
+                  {busySeconds}s
+                </span>
+              ) : null}
+            </p>
+          ) : null}
         </div>
       </div>
     );
@@ -252,6 +297,7 @@ export default function PaperTrainerLab() {
   const [paper, setPaper] = useState<PaperState | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadSeconds, setUploadSeconds] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -275,6 +321,19 @@ export default function PaperTrainerLab() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!uploading) {
+      setUploadSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const timer = window.setInterval(
+      () => setUploadSeconds(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [uploading]);
 
   const handlePick = useCallback(
     (file: File | null | undefined) => {
@@ -385,7 +444,7 @@ export default function PaperTrainerLab() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => openPaper()}
+                onClick={() => openPaper(paperEvidence(paper))}
                 icon={<FileText size={13} />}
                 data-testid="view-original"
               >
@@ -418,6 +477,7 @@ export default function PaperTrainerLab() {
         {!restoring && !paper ? (
           <UploadArea
             busy={uploading}
+            busySeconds={uploadSeconds}
             dragging={dragging}
             selectedFile={selectedFile}
             difficulty={difficulty}

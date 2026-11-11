@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS papers (
     filename     TEXT NOT NULL DEFAULT '',
     title        TEXT NOT NULL DEFAULT '',
     source_url   TEXT NOT NULL DEFAULT '',
+    paper_text   TEXT NOT NULL DEFAULT '',
     outline_json TEXT NOT NULL DEFAULT '{}',
     created_at   REAL NOT NULL,
     updated_at   REAL NOT NULL
@@ -99,6 +100,14 @@ class PaperTrainerStore:
                 return
             with self._connect() as conn:
                 conn.executescript(_SCHEMA)
+                columns = {
+                    str(row["name"])
+                    for row in conn.execute("PRAGMA table_info(papers)").fetchall()
+                }
+                if "paper_text" not in columns:
+                    conn.execute(
+                        "ALTER TABLE papers ADD COLUMN paper_text TEXT NOT NULL DEFAULT ''"
+                    )
             _initialized_paths.add(resolved)
 
     @contextmanager
@@ -122,19 +131,21 @@ class PaperTrainerStore:
         title: str,
         source_url: str,
         outline: PaperOutline,
+        paper_text: str = "",
     ) -> None:
         now = time.time()
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO papers (
-                    paper_id, filename, title, source_url, outline_json,
+                    paper_id, filename, title, source_url, paper_text, outline_json,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(paper_id) DO UPDATE SET
                     filename = excluded.filename,
                     title = excluded.title,
                     source_url = excluded.source_url,
+                    paper_text = excluded.paper_text,
                     outline_json = excluded.outline_json,
                     updated_at = excluded.updated_at
                 """,
@@ -143,11 +154,19 @@ class PaperTrainerStore:
                     filename,
                     title,
                     source_url,
+                    paper_text,
                     _dump(outline.model_dump()),
                     now,
                     now,
                 ),
             )
+
+    def get_paper_text(self, paper_id: str) -> str:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT paper_text FROM papers WHERE paper_id = ?", (paper_id,)
+            ).fetchone()
+        return str(row["paper_text"] or "") if row is not None else ""
 
     def get_paper(self, paper_id: str) -> PaperState | None:
         with self._connect() as conn:
@@ -230,10 +249,38 @@ def evidence_from_dicts(rows: list[dict[str, Any]]) -> list[PaperEvidence]:
     for row in rows or []:
         if not isinstance(row, dict):
             continue
-        try:
-            out.append(PaperEvidence.model_validate(row))
-        except Exception:
+        section_value = row.get("section") or row.get("section_name") or row.get("heading")
+        quote_value = (
+            row.get("quote")
+            or row.get("excerpt")
+            or row.get("snippet")
+            or row.get("text")
+        )
+        section = str(section_value or "").strip()[:300]
+        if isinstance(quote_value, (list, tuple)):
+            quote = " ".join(str(item).strip() for item in quote_value if str(item).strip())
+        else:
+            quote = str(quote_value or "").strip()
+        quote = quote[:1200]
+        # A location without original wording is not a cited passage. Keeping
+        # such rows produces an empty quote card in the UI and falsely implies
+        # that the model supplied source evidence.
+        if not quote:
             continue
+        page_value = row.get("page")
+        try:
+            page = int(page_value) if page_value not in (None, "") else None
+        except (TypeError, ValueError):
+            page = None
+        if page is not None and page <= 0:
+            page = None
+        basis_value = str(row.get("basis") or "stated").strip().lower()
+        basis = basis_value if basis_value in {"stated", "inferred", "extension"} else "stated"
+        out.append(
+            PaperEvidence.model_validate(
+                {"section": section, "quote": quote, "page": page, "basis": basis}
+            )
+        )
     return out
 
 
