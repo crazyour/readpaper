@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import PdfPreview from "@/components/chat/preview/previewers/PdfPreview";
+import PdfPreview from "./PdfPreview";
 import { Dialog, StatusChip } from "@/shared/ui";
 import type { PaperEvidence } from "@/features/paper-trainer/model";
 

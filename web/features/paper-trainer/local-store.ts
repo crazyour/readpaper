@@ -12,15 +12,10 @@ import {
 const NAMESPACE = "deeptutor:v3:paper-trainer:paper:";
 const memory = new Map<string, StoredPaper>();
 
-export type PaperBackend =
-  | { kind: "local" }
-  | { kind: "cloud"; baseUrl: string };
-
 export interface StoredPaper {
-  version: 2;
+  version: 3;
   paper: PaperState;
   paperText: string;
-  backend: PaperBackend;
 }
 
 function storageKey(paperId: string): string {
@@ -30,8 +25,8 @@ function storageKey(paperId: string): string {
 function persistedCopy(value: StoredPaper): StoredPaper {
   return {
     ...value,
-    // Object URLs only survive in the current tab. A cloud URL is durable and
-    // should remain available after a reload.
+    // Object URLs only survive in the current tab. The Blob itself is restored
+    // from IndexedDB and receives a fresh URL after reload.
     paper: {
       ...value.paper,
       source_url: value.paper.source_url.startsWith("blob:")
@@ -44,9 +39,8 @@ function persistedCopy(value: StoredPaper): StoredPaper {
 export function savePaperSession(
   paper: PaperState,
   paperText: string,
-  backend: PaperBackend = { kind: "local" },
 ): void {
-  const stored: StoredPaper = { version: 2, paper, paperText, backend };
+  const stored: StoredPaper = { version: 3, paper, paperText };
   memory.set(paper.paper_id, stored);
   browserStorage.writeRaw(
     "local",
@@ -65,10 +59,9 @@ export function readPaperSession(paperId: string): StoredPaper | null {
       version?: unknown;
       paper?: PaperState;
       paperText?: unknown;
-      backend?: PaperBackend;
     };
     if (
-      (parsed.version !== 1 && parsed.version !== 2) ||
+      ![1, 2, 3].includes(Number(parsed.version)) ||
       !parsed.paper ||
       parsed.paper.paper_id !== paperId ||
       typeof parsed.paperText !== "string"
@@ -76,16 +69,12 @@ export function readPaperSession(paperId: string): StoredPaper | null {
       return null;
     }
     const restored: StoredPaper = {
-      version: 2,
+      version: 3,
       paper: {
         ...parsed.paper,
         difficulty: normalizePaperDifficulty(parsed.paper.difficulty),
       },
       paperText: parsed.paperText,
-      backend:
-        parsed.version === 2 && parsed.backend?.kind === "cloud"
-          ? parsed.backend
-          : { kind: "local" },
     };
     memory.set(paperId, restored);
     return restored;
@@ -108,6 +97,6 @@ export function saveModuleState(
     modules: { ...stored.paper.modules, [module]: state },
     updated_at: Date.now() / 1000,
   };
-  savePaperSession(paper, stored.paperText, stored.backend);
+  savePaperSession(paper, stored.paperText);
   return paper;
 }

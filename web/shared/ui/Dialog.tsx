@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { X } from "lucide-react";
-import { IconButton } from "./IconButton";
 import { cn } from "./styles";
 
 const FOCUSABLE =
@@ -152,13 +151,16 @@ export function Dialog({
               </p>
             ) : null}
           </div>
-          <IconButton
-            label={closeLabel}
-            icon={<X aria-hidden className="h-4 w-4" />}
-            size="sm"
+          <button
+            type="button"
+            aria-label={closeLabel}
+            title={closeLabel}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             disabled={busy}
             onClick={onClose}
-          />
+          >
+            <X aria-hidden className="h-4 w-4" />
+          </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {children}

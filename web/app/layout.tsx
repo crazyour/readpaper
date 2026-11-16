@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import ThemeScript from "@/components/ThemeScript";
 import RootProviders from "@/components/RootProviders";
 
 export const viewport: Viewport = { interactiveWidget: "resizes-content" };
@@ -23,17 +22,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="zh-CN"
-      suppressHydrationWarning
-      data-scroll-behavior="smooth"
-    >
-      <head>
-        <ThemeScript />
-      </head>
+    <html lang="zh-CN" data-scroll-behavior="smooth">
       <body
         className="font-sans bg-[var(--background)] text-[var(--foreground)]"
-        suppressHydrationWarning
       >
         <RootProviders>{children}</RootProviders>
       </body>
