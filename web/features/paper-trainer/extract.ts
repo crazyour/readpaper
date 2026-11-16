@@ -44,20 +44,35 @@ async function extractPdf(file: File): Promise<string> {
     const document = await task.promise;
     const pages: string[] = [];
     let length = 0;
-    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-      const page = await document.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const text = content.items
-        .flatMap((item) =>
-          "str" in item && typeof item.str === "string" ? [item.str] : [],
-        )
-        .join(" ")
-        .trim();
-      if (!text) continue;
-      const block = `[Page ${pageNumber}]\n${text}`;
-      pages.push(block);
-      length += block.length;
-      if (length >= MAX_PAPER_TEXT_CHARS) break;
+    const batchSize = 4;
+    for (
+      let batchStart = 1;
+      batchStart <= document.numPages && length < MAX_PAPER_TEXT_CHARS;
+      batchStart += batchSize
+    ) {
+      const pageNumbers = Array.from(
+        { length: Math.min(batchSize, document.numPages - batchStart + 1) },
+        (_, index) => batchStart + index,
+      );
+      const blocks = await Promise.all(
+        pageNumbers.map(async (pageNumber) => {
+          const page = await document.getPage(pageNumber);
+          const content = await page.getTextContent();
+          const text = content.items
+            .flatMap((item) =>
+              "str" in item && typeof item.str === "string" ? [item.str] : [],
+            )
+            .join(" ")
+            .trim();
+          return text ? `[Page ${pageNumber}]\n${text}` : "";
+        }),
+      );
+      for (const block of blocks) {
+        if (!block) continue;
+        pages.push(block);
+        length += block.length;
+        if (length >= MAX_PAPER_TEXT_CHARS) break;
+      }
     }
     return pages.join("\n\n");
   } finally {

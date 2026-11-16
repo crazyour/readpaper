@@ -56,6 +56,13 @@ function configuredModel(): MiniMaxConfig | null {
   return model && baseUrl ? { model, baseUrl } : null;
 }
 
+function candidateApiBases(): readonly string[] {
+  const configured = (process.env.MINIMAX_API_BASE ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+  return configured ? [configured] : API_BASES;
+}
+
 function reasoningBody(
   model: string,
   effort: "none" | "low",
@@ -98,32 +105,44 @@ async function discover(
   key: string,
   fetchImpl: typeof fetch,
 ): Promise<MiniMaxConfig> {
-  let authenticationFailed = false;
-  for (const baseUrl of API_BASES) {
+  const attempts = candidateApiBases().map(async (baseUrl) => {
     try {
       const response = await fetchImpl(`${baseUrl}/models`, {
         headers: { Authorization: `Bearer ${key}` },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(5_000),
         cache: "no-store",
       });
       if (response.status === 401 || response.status === 403) {
-        authenticationFailed = true;
-        continue;
+        throw new MiniMaxApiError("authentication", 401);
       }
-      if (!response.ok) continue;
+      if (!response.ok) throw new MiniMaxApiError("unavailable", 503);
       const body = (await response.json()) as { data?: unknown };
       const model = preferredModel(body.data);
       if (model) return { baseUrl, model };
-    } catch {
-      // Try the other MiniMax region. Keys are issued per platform.
+      throw new MiniMaxApiError("no-model", 503);
+    } catch (error) {
+      if (error instanceof MiniMaxApiError) throw error;
+      throw new MiniMaxApiError("unavailable", 503);
     }
+  });
+
+  try {
+    // Region keys are platform-specific. Probe both regions concurrently so a
+    // cold serverless instance pays one network round trip instead of two.
+    return await Promise.any(attempts);
+  } catch (error) {
+    const failures =
+      error instanceof AggregateError ? error.errors : [error];
+    const authenticationFailed = failures.some(
+      (failure) => failure instanceof MiniMaxApiError && failure.status === 401,
+    );
+    throw new MiniMaxApiError(
+      authenticationFailed
+        ? "The MiniMax API key was rejected. Check that it is copied completely."
+        : "MiniMax could not be reached or returned no available text model.",
+      authenticationFailed ? 401 : 503,
+    );
   }
-  throw new MiniMaxApiError(
-    authenticationFailed
-      ? "The MiniMax API key was rejected. Check that it is copied completely."
-      : "MiniMax could not be reached or returned no available text model.",
-    authenticationFailed ? 401 : 503,
-  );
 }
 
 function jsonObject(content: string): Record<string, unknown> {
@@ -162,6 +181,7 @@ export async function miniMaxJson(
           discoveredConfig = null;
           throw error;
         })));
+  const configuredAt = performance.now();
 
   let response: Response;
   try {
@@ -221,6 +241,8 @@ export async function miniMaxJson(
   console.info("Paper trainer MiniMax call", {
     model: config.model,
     promptChars: system.length + prompt.length,
+    discoveryMs: Math.round(configuredAt - started),
+    generationMs: Math.round(performance.now() - configuredAt),
     elapsedMs: Math.round(performance.now() - started),
   });
   return result;
